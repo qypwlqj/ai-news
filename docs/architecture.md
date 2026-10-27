@@ -113,6 +113,13 @@ Postgres
 - `createCollectRun` / `finishCollectRun` / `saveSourceRun`：先写批次占位行 → 回填 `finished_at` / `duration_ms` / `totals`；逐源 `ON CONFLICT (run_id, source) DO UPDATE` 只更新计数与 `attempts`，`error_message` 经 `sanitizeMessage` 脱敏并截断 ≤ 2000 字。
 - 两个模块都只依赖注入的 `{ query(sql, params) }`，不建连接、不读环境变量、不发网络请求。
 
+## 8.8 采集编排服务（src/app/news-collect-service.ts）
+
+- 纯编排：`runCollect(request, ports)` 串联抢锁 → 幂等短路 → 三来源采集 → 去重入库 + 摘要加工（`ingestSource` 端口）→ 批次汇总；锁、仓储、抓取、加工、时钟、ID 全部注入，不建连接、不读环境变量、不发网络请求。
+- `tryLock` 失败返回 `409 COLLECT_IN_PROGRESS` 且不写批次行；当日已有 `success`/`partial_failure` 且未 `force` → 200 且 `sources` 全部 `skipped`（`attempts=0`）。
+- 逐源失败最多重试 3 次（`attempts ≤ 3`）；至少一源成功 200（`success`/`partial_failure`），全部失败 502 `ALL_SOURCES_FAILED` 且响应体结构与 200 相同；`error.message` 压平空白并截断 ≤ 2000 字。
+- 测试：`tests/news-collect-service.part9.test.ts`。
+
 ## 9. 边界
 
 - 不含账号/收藏、评论点赞、个性化推荐、多语言、原生 App、付费与广告、后台 CMS。
