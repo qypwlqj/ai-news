@@ -89,6 +89,12 @@ Postgres
 - `parseHackerNews` / `parseArxivAtom` / `parseRssFeed` 为纯解析函数（HN Algolia JSON、ArXiv Atom、RSS/Atom），`collectHackerNews` / `collectArxiv` / `collectJiqizhixin` 接收注入的 `fetcher`，`createSourceCollectors` 按来源装配，重试与互斥仍由编排层负责。
 - 端点、关键词（`DEFAULT_AI_KEYWORDS`）与条数上限全部来自 `SourceConfig`/`DEFAULT_SOURCE_CONFIG`，不读取环境变量、不含任何凭据；输出统一为 `RawNewsItem`（`publishedAt` 为 UTC `Date`，`rawExcerpt` 截断 ≤ 2000 字）。
 
+## 8.5 采集器基础层（src/app/news-collectors.ts）
+
+- `COLLECTOR_SOURCE_VALUES` 与 `source_enum` 三值对齐；`Collector` 契约（`source` + `fetchItems(fetcher)`）供三个来源适配器实现。
+- `fetchText(fetcher, url, options)`：注入式 fetcher，超时（默认 10000ms）+ 最多 3 次重试，失败返回脱敏 `errorCode`（`FETCH_TIMEOUT` / `FETCH_HTTP_ERROR` / `FETCH_FAILED` / `FETCH_INVALID_PAYLOAD`）。
+- `createHackerNewsCollector`：Algolia `search_by_date`，关键词（`isAiRelatedTitle` 词边界匹配）+ 热度阈值（默认 20）过滤，输出 `externalId/title/url/publishedAt/rawExcerpt`（截断 ≤ 2000 字）。
+
 ## 8.4 摘要模块（src/app/news-summarize.ts）
 
 - `summarizeNewsItem(input, deps)` / `createSummarizer(deps)` 为纯函数 + 注入式模型调用（模型客户端由 `src/lib` 提供），不读环境变量、不发网络请求。
