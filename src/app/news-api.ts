@@ -1,17 +1,22 @@
 import { CATEGORIES } from './news-constants';
-import { isIsoDate, shanghaiDayRangeUtc } from './news-date';
+import { isIsoDate } from './news-date';
+import {
+  NEWS_SOURCE_VALUES as SOURCE_VALUES,
+  buildPageMeta,
+  parseNewsListQuery,
+  parsePaging,
+  readQueryParam,
+  serializeNewsItem,
+  serializeNewsList,
+} from './news-query';
 
 /**
  * 框架无关的接口处理函数：Route Handler 只做「取值 → 调用 → 转 Response」的薄壳。
  * 校验、统一错误信封 { error: { code, message, requestId } } 与 400/401/404/409/502/503 语义集中在此，便于单测。
  */
 
-/** 与 source_enum 一致（只加不删不改名）。 */
-const SOURCE_VALUES = ['hacker_news', 'arxiv_cs_ai', 'jiqizhixin'] as const;
 const RUN_STATUS_VALUES = ['success', 'partial_failure', 'failed'] as const;
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
-const DEFAULT_LIMIT = 20;
-const MAX_LIMIT = 100;
 
 export type Source = (typeof SOURCE_VALUES)[number];
 export type RunStatus = (typeof RUN_STATUS_VALUES)[number];
@@ -118,49 +123,6 @@ function requestIdOf(deps: NewsApiDeps): string {
   return typeof deps.requestId === 'function' ? deps.requestId() : '';
 }
 
-function readParam(params: SearchParams, key: string): string | null {
-  if (params instanceof URLSearchParams) {
-    const value = params.get(key);
-    return value && value.trim().length > 0 ? value.trim() : null;
-  }
-  const raw = params[key];
-  const value = Array.isArray(raw) ? raw[0] : raw;
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
-}
-
-function toPositiveInt(value: string | null, fallback: number): number | null {
-  if (value === null) return fallback;
-  if (!/^\d+$/.test(value)) return null;
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= 1 ? parsed : null;
-}
-
-function paginate(total: number, page: number, limit: number) {
-  const totalPages = Math.max(0, Math.ceil(total / limit));
-  return { totalPages, hasNext: page < totalPages };
-}
-
-function parsePaging(params: SearchParams): { page: number; limit: number } | null {
-  const page = toPositiveInt(readParam(params, 'page'), 1);
-  const limit = toPositiveInt(readParam(params, 'limit'), DEFAULT_LIMIT);
-  if (page === null || limit === null || limit > MAX_LIMIT) return null;
-  return { page, limit };
-}
-
-function serializeNews(row: NewsRow): Record<string, unknown> {
-  return {
-    id: row.id,
-    title: row.title,
-    url: row.url,
-    source: row.source,
-    publishedAt: row.publishedAt,
-    summary: row.summaryStatus === 'failed' ? null : row.summary,
-    category: row.category,
-    summaryStatus: row.summaryStatus,
-    createdAt: row.createdAt ?? null,
-  };
-}
-
 function todayInShanghai(now: Date): string {
   return new Date(now.getTime() + 8 * 3_600_000).toISOString().slice(0, 10);
 }
@@ -168,44 +130,29 @@ function todayInShanghai(now: Date): string {
 /** GET /api/news：date / category / source / page / limit 严格校验，非法值一律 400。 */
 export async function handleNewsList(deps: NewsApiDeps, params: SearchParams = {}): Promise<ApiResult> {
   const requestId = requestIdOf(deps);
-  const paging = parsePaging(params);
-  if (!paging) {
-    return errorResult('INVALID_PAGINATION', 'page must be >= 1 and limit within 1..100', 400, requestId);
+  const parsed = parseNewsListQuery(params);
+  if (!parsed.ok) {
+    return errorResult(parsed.code, parsed.message, 400, requestId);
   }
-
-  const date = readParam(params, 'date');
-  if (date !== null && !isIsoDate(date)) {
-    return errorResult('INVALID_DATE', 'date must be YYYY-MM-DD', 400, requestId);
-  }
-  const category = readParam(params, 'category');
-  if (category !== null && !CATEGORIES.some((item) => item.value === category)) {
-    return errorResult('INVALID_CATEGORY', 'unknown category', 400, requestId);
-  }
-  const source = readParam(params, 'source');
-  if (source !== null && !SOURCE_VALUES.includes(source as Source)) {
-    return errorResult('INVALID_SOURCE', 'unknown source', 400, requestId);
-  }
-
-  const range = date === null ? null : shanghaiDayRangeUtc(date);
+  const { query } = parsed;
   try {
     const result = await deps.repository.listNews({
-      startUtc: range ? range.startUtc : null,
-      endUtc: range ? range.endUtc : null,
-      category,
-      source,
-      page: paging.page,
-      limit: paging.limit,
+      startUtc: query.startUtc,
+      endUtc: query.endUtc,
+      category: query.category,
+      source: query.source,
+      page: query.page,
+      limit: query.limit,
     });
-    const { totalPages, hasNext } = paginate(result.total, paging.page, paging.limit);
-    return okResult({
-      items: result.items.map(serializeNews),
-      page: paging.page,
-      limit: paging.limit,
-      total: result.total,
-      totalPages,
-      hasNext,
-      date,
-    });
+    return okResult(
+      serializeNewsList({
+        items: result.items,
+        total: result.total,
+        page: query.page,
+        limit: query.limit,
+        date: query.date,
+      }),
+    );
   } catch {
     return errorResult('INTERNAL_ERROR', 'failed to load news', 500, requestId);
   }
@@ -222,7 +169,7 @@ export async function handleNewsDetail(deps: NewsApiDeps, id: string): Promise<A
     const row = await deps.repository.getNewsById(newsId);
     if (!row) return errorResult('NEWS_NOT_FOUND', 'news item not found', 404, requestId);
     return okResult({
-      ...serializeNews(row),
+      ...serializeNewsItem(row),
       originalTitle: row.originalTitle ?? null,
       rawExcerpt: row.rawExcerpt ?? null,
       titleFingerprint: row.titleFingerprint ?? '',
@@ -330,11 +277,11 @@ export async function handleCollectRuns(
   if (!paging) {
     return errorResult('INVALID_PAGINATION', 'page must be >= 1 and limit within 1..100', 400, requestId);
   }
-  const date = readParam(params, 'date');
+  const date = readQueryParam(params, 'date');
   if (date !== null && !isIsoDate(date)) {
     return errorResult('INVALID_DATE', 'date must be YYYY-MM-DD', 400, requestId);
   }
-  const status = readParam(params, 'status');
+  const status = readQueryParam(params, 'status');
   if (status !== null && !RUN_STATUS_VALUES.includes(status as RunStatus)) {
     return errorResult('INVALID_STATUS', 'unknown run status', 400, requestId);
   }
@@ -346,7 +293,7 @@ export async function handleCollectRuns(
       page: paging.page,
       limit: paging.limit,
     });
-    const { totalPages } = paginate(result.total, paging.page, paging.limit);
+    const { totalPages } = buildPageMeta(result.total, paging.page, paging.limit);
     return okResult({
       items: result.items,
       page: paging.page,

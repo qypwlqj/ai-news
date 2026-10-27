@@ -17,6 +17,8 @@
 - 日期参数非法直接抛错（接口层映射 `400 INVALID_DATE`），不做静默纠正；`date` 按上海自然日换算为 UTC 半开区间。
 - 去重：URL 归一化后相等为硬重复；标题相似度（字符二元组 Dice 系数）严格大于 `0.9`（`TITLE_SIMILARITY_THRESHOLD`）为软重复，指纹仅用于收窄候选。
 
+| `src/app/news-query.ts` | `parseNewsListQuery`（`date` → Asia/Shanghai 自然日的 UTC 半开区间、`category`/`source` 枚举、`page`/`limit` 默认 20 上限 100；非法返回 `INVALID_DATE`/`INVALID_CATEGORY`/`INVALID_SOURCE`/`INVALID_PAGINATION`）、`parsePaging`、`readQueryParam`、`buildPageMeta`、`serializeNewsItem`/`serializeNewsList`（`summaryStatus=failed` 照常返回，`summary` 降级为 `null`） |
+
 - 错误信封：`message` 出参/落库前统一经 `sanitizeMessage`（脱敏连接串、Bearer 令牌与 secret 类键值 + 截断 ≤ 2000 字），绝不回显堆栈、SQL 或环境变量值。
 
-测试：`tests/news-primitives.part1.test.ts`、`tests/news-dedup.part1.test.ts`、`tests/news-errors.part1.test.ts`、`tests/news-utils.test.ts`（日期换算、分类字典、URL/标题去重、错误截断脱敏）。
+测试：`tests/news-primitives.part1.test.ts`、`tests/news-dedup.part1.test.ts`、`tests/news-errors.part1.test.ts`、`tests/news-utils.test.ts`、`tests/news-query.part10.test.ts`（日期换算、分类字典、URL/标题去重、错误截断脱敏）。
