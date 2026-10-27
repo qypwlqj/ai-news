@@ -107,6 +107,12 @@ Postgres
 - `buildSummaryPrompt` 固定「50–200 字中文摘要 + 5 类固定枚举」提示词；`parseModelPayload` 解析模型 JSON（容忍代码块包裹），分类归一与非法兜底 `industry_news` 仍由 `news-summarize.ts` 负责。
 - 失败抛出带稳定 `code` 的 `LlmError`（`LLM_NOT_CONFIGURED` / `LLM_REQUEST_FAILED` / `LLM_HTTP_ERROR` / `LLM_INVALID_RESPONSE`），文案脱敏截断且不含凭据；`summarizeNewsItem` 捕获后降级 `summary=null` + `summaryStatus=failed` 并保留该 code，不中断批次。
 
+## 8.7 入库去重与批次日志（src/app/news-persist.ts / news-runs.ts）
+
+- `persistNewsItem` / `persistNewsBatch`：`INSERT ... ON CONFLICT (normalized_url) DO NOTHING` 硬去重（冲突计 `duplicates`），写入前用 `title_fingerprint` + 近 7 天窗口取候选做相似度 > 0.9 软去重；`updateNewsSummary` 回填摘要与 `summary_status`（`failed` 写 `NULL`）。
+- `createCollectRun` / `finishCollectRun` / `saveSourceRun`：先写批次占位行 → 回填 `finished_at` / `duration_ms` / `totals`；逐源 `ON CONFLICT (run_id, source) DO UPDATE` 只更新计数与 `attempts`，`error_message` 经 `sanitizeMessage` 脱敏并截断 ≤ 2000 字。
+- 两个模块都只依赖注入的 `{ query(sql, params) }`，不建连接、不读环境变量、不发网络请求。
+
 ## 9. 边界
 
 - 不含账号/收藏、评论点赞、个性化推荐、多语言、原生 App、付费与广告、后台 CMS。
