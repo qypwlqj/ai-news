@@ -66,3 +66,41 @@ export function isSource(value: string): value is Source {
 export function fallbackCategory(value: string | null | undefined): Category {
   return value && isCategory(value) ? value : 'industry_news';
 }
+
+export const RUN_STATUS_VALUES = ['success', 'partial_failure', 'failed'] as const;
+export const SOURCE_RUN_STATUS_VALUES = ['success', 'failed', 'skipped'] as const;
+export const RUN_TRIGGER_VALUES = ['cron', 'api'] as const;
+
+/** 错误码为稳定机器可读常量，重命名视为破坏性兼容变更。 */
+export const API_ERROR_CODES = [
+  'INVALID_DATE',
+  'INVALID_CATEGORY',
+  'INVALID_SOURCE',
+  'INVALID_STATUS',
+  'INVALID_PAGINATION',
+  'INVALID_ID',
+  'INVALID_RUN_ID',
+  'INVALID_BODY',
+  'UNAUTHORIZED',
+  'FORBIDDEN',
+  'NEWS_NOT_FOUND',
+  'RUN_NOT_FOUND',
+  'COLLECT_IN_PROGRESS',
+  'ALL_SOURCES_FAILED',
+  'SERVICE_UNAVAILABLE',
+  'INTERNAL_ERROR',
+] as const;
+export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
+
+/** 统一错误信封：所有非 2xx 响应体。 */
+export interface ApiErrorEnvelope {
+  error: { code: ApiErrorCode; message: string; requestId: string };
+}
+
+export function isSummaryStatus(value: string): value is SummaryStatus {
+  return SUMMARY_STATUS_VALUES.some((item) => item === value);
+}
+
+export function isRunStatus(value: string): value is RunStatus {
+  return RUN_STATUS_VALUES.some((item) => item === value);
+}
