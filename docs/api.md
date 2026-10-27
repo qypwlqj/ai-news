@@ -97,12 +97,76 @@
 
 错误码：`401 UNAUTHORIZED`、`403 FORBIDDEN`、`409 COLLECT_IN_PROGRESS`（并发保护）、`400 INVALID_DATE`、`400 INVALID_SOURCE`、`502 ALL_SOURCES_FAILED`（全部来源失败，响应体结构同上）、`500 INTERNAL_ERROR`。当日已有成功批次且未 `force` → 200 且 `sources` 全部 `status=skipped`。
 
-## 其它端点
+## GET /api/news/{id}
 
-| 端点 | 用途 | 主要错误码 |
+路径参数 `id`（必填，非空标识）；无查询参数、无请求体。
+
+```json
+{
+  "id": "cuid",
+  "title": "标题",
+  "originalTitle": "Original title",
+  "url": "https://example.com/a",
+  "source": "hacker_news",
+  "publishedAt": "2025-06-01T00:00:00.000Z",
+  "summary": null,
+  "category": "industry_news",
+  "summaryStatus": "failed",
+  "rawExcerpt": "截断脱敏后的原文片段",
+  "titleFingerprint": "1a2b3c4d",
+  "createdAt": "2025-06-01T00:05:00.000Z",
+  "updatedAt": "2025-06-01T00:06:00.000Z"
+}
+```
+
+- 只读展示，不含评论/点赞/收藏字段；`summaryStatus=failed` 时 `summary` 为 `null`，详情照常 200。
+- 静态子路径（如 `/api/categories`）优先于动态路由匹配，不会被吞并。
+- 错误码：`400 INVALID_ID`、`404 NEWS_NOT_FOUND`、`500 INTERNAL_ERROR`。
+
+## GET /api/categories
+
+无参数、无请求体；分类 Chip 的 `label`/`order` 唯一来源，前端不得硬编码。
+
+```json
+{ "items": [ { "value": "model_release", "label": "模型发布", "order": 1 } ] }
+```
+
+固定 5 项且顺序稳定：`model_release`（模型发布）、`research_paper`（研究论文）、`product_application`（产品应用）、`industry_news`（行业动态）、`policy_funding`（政策融资）。错误码：`500 INTERNAL_ERROR`。
+
+## GET /api/collect-runs
+
+| 参数 | 类型 | 说明 |
 | --- | --- | --- |
-| `GET /api/news/{id}` | 资讯详情 | `404 NEWS_NOT_FOUND` |
-| `GET /api/categories` | 5 项 `value/label/order`，前端分类栏不硬编码 | `500 INTERNAL_ERROR` |
-| `GET /api/collect-runs` | 批次列表（`date`/`status`/分页） | `400 INVALID_DATE`、`400 INVALID_STATUS` |
-| `GET /api/collect-runs/{runId}` | 批次逐源明细 | `404 RUN_NOT_FOUND` |
-| `GET /api/health` | 探活，`checks.database` 为 `ok` 或 `error` | `503 SERVICE_UNAVAILABLE` |
+| `date` | `YYYY-MM-DD` | Asia/Shanghai 自然日 |
+| `status` | `success` / `partial_failure` / `failed` | 批次状态 |
+| `page` | integer ≥ 1 | 默认 1 |
+| `limit` | integer 1..100 | 默认 20 |
+
+200 响应：`{ items: [{ runId, trigger, date, status, startedAt, finishedAt, durationMs, totals }], page, limit, total, totalPages }`，`totals` 为 `{ fetched, inserted, duplicates, summaryOk, summaryFailed }`；默认按 `startedAt DESC`（由仓储负责排序）。错误码：`400 INVALID_DATE`、`400 INVALID_STATUS`、`400 INVALID_PAGINATION`、`500 INTERNAL_ERROR`。
+
+## GET /api/collect-runs/{runId}
+
+路径参数 `runId`（必填）。
+
+200 响应：`{ runId, trigger, date, status, startedAt, finishedAt, durationMs, totals, sources: [{ source, status, fetched, inserted, duplicates, failed, durationMs, attempts, error?: { code, message } }] }`。逐源唯一键 `(run_id, source)`，重试只更新 `attempts`；`error.message` 截断（≤ 2000 字）脱敏后展示，不含令牌与连接串。错误码：`400 INVALID_RUN_ID`、`404 RUN_NOT_FOUND`、`500 INTERNAL_ERROR`。
+
+## GET /api/health
+
+无参数、无请求体。
+
+```json
+{ "status": "ok", "time": "2025-06-01T00:00:00.000Z", "checks": { "database": "ok" } }
+```
+
+`checks.database=error` 时返回 503 且 `status=degraded`；不返回配置、版本凭据或环境变量。错误码：`500 INTERNAL_ERROR`、`503 SERVICE_UNAVAILABLE`。
+
+## 兼容性规则（二期小程序复用依据）
+
+1. `GET /api/news` 的 `id/title/url/source/publishedAt/summary/category` 必返，二期微信小程序直接复用，不新增 Web 私有字段。
+2. 响应字段只增不删、不改名、不改类型与语义；新增字段一律可选，客户端须容忍缺失。
+3. 枚举只追加不删除不改名；客户端遇未知值降级为原值文本 + 中性样式，不报错不隐藏条目。
+4. 分页 `page/limit/total/totalPages` 语义冻结，默认 `limit=20` 不得变更。
+5. `summaryStatus=failed` 的条目长期返回，不得因加工失败被过滤。
+6. 时间一律 ISO8601 UTC 传输；`date` 参数按 Asia/Shanghai 自然日解释为半开区间。
+7. 错误统一信封 `{ error: { code, message, requestId } }`，`code` 为稳定机器码；`502`/`409` 状态码语义发布后不得改变。
+8. 采集幂等与重试：当日已有 `success`/`partial_failure` 且未 `force` → 200 且 `sources` 全部 `skipped`；单源失败重试 `attempts ≤ 3`；全源失败返回 502（响应体结构不变）。
