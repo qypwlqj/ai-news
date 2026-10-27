@@ -101,6 +101,12 @@ Postgres
 - 成功判定：摘要 50–200 字（超长截断至 200）；分类经 `coerceCategory` 归一（含中文别名），非法或缺失兜底 `industry_news`。
 - 失败 / 超时（默认 8000ms，可注入）/ 摘要过短 / 未配置 caller 一律 `summaryStatus=failed`、`summary=null`，返回 `errorCode`（`SUMMARY_UNAVAILABLE` / `SUMMARY_TIMEOUT` / `SUMMARY_INVALID_LENGTH`），不抛错、不中断批次；`errorMessage` 截断 ≤200 字并脱敏。
 
+## 8.6 LLM 客户端（src/app/news-llm.ts）
+
+- `createLlmCaller(config, { fetchImpl })`：endpoint / model / apiKey 全部以配置注入（不读环境变量、不内置凭据），`fetch` 由调用方提供，测试不触网；返回 `ModelSummarizer` 供 `summarizeNewsItem` 的 `callModel` 使用。
+- `buildSummaryPrompt` 固定「50–200 字中文摘要 + 5 类固定枚举」提示词；`parseModelPayload` 解析模型 JSON（容忍代码块包裹），分类归一与非法兜底 `industry_news` 仍由 `news-summarize.ts` 负责。
+- 失败抛出带稳定 `code` 的 `LlmError`（`LLM_NOT_CONFIGURED` / `LLM_REQUEST_FAILED` / `LLM_HTTP_ERROR` / `LLM_INVALID_RESPONSE`），文案脱敏截断且不含凭据；`summarizeNewsItem` 捕获后降级 `summary=null` + `summaryStatus=failed` 并保留该 code，不中断批次。
+
 ## 9. 边界
 
 - 不含账号/收藏、评论点赞、个性化推荐、多语言、原生 App、付费与广告、后台 CMS。

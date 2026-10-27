@@ -154,11 +154,16 @@ export async function summarizeNewsItem(
     return { summary, category, summaryStatus: 'ok', errorCode: null, errorMessage: null, durationMs };
   } catch (error) {
     const timedOut = error instanceof Error && error.message === ERROR_SUMMARY_TIMEOUT;
+    const causeCode = (error as { code?: unknown } | null)?.code;
     return {
       summary: null,
       category: FALLBACK_CATEGORY,
       summaryStatus: 'failed',
-      errorCode: timedOut ? ERROR_SUMMARY_TIMEOUT : ERROR_SUMMARY_UNAVAILABLE,
+      errorCode: timedOut
+        ? ERROR_SUMMARY_TIMEOUT
+        : typeof causeCode === 'string' && causeCode
+          ? causeCode
+          : ERROR_SUMMARY_UNAVAILABLE,
       errorMessage: sanitizeErrorMessage(error),
       durationMs: Date.now() - startedAt,
     };
