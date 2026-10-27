@@ -77,6 +77,13 @@ Postgres
 - 降级展示：`summaryStatus=failed` 显示「摘要生成失败，可点击标题阅读原文」，`pending` 显示「摘要生成中…」，条目照常可见可点。
 - 样式内联（不新增 CSS 依赖）；无结果时展示「该分类今日暂无资讯」。
 
+## 8.2 采集编排模块（src/app/news-collect.ts）
+
+- 可注入 `fetcher` / 时钟 / 仓储 / 加工器：三来源解析（HN Algolia JSON、ArXiv Atom、机器之心 RSS）为纯函数，单测不触网、不连库。
+- 逐源失败最多重试 3 次（`attempts` 记录实际次数）；全部来源失败时返回 `httpStatus=502`（对外映射 `502 ALL_SOURCES_FAILED`），部分失败仍为 200 且 `status=partial_failure`。
+- 当日已有成功批次且未 `force` → 逐源 `skipped` 的幂等短路；`error.message` 写入前脱敏并截断（≤ 2000 字）。
+- 机器之心 feed 地址、HN 关键词与条数上限全部配置化，默认配置不含任何凭据。
+
 ## 9. 边界
 
 - 不含账号/收藏、评论点赞、个性化推荐、多语言、原生 App、付费与广告、后台 CMS。
