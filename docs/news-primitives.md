@@ -19,4 +19,4 @@
 
 - 错误信封：`message` 出参/落库前统一经 `sanitizeMessage`（脱敏连接串、Bearer 令牌与 secret 类键值 + 截断 ≤ 2000 字），绝不回显堆栈、SQL 或环境变量值。
 
-测试：`tests/news-primitives.part1.test.ts`、`tests/news-dedup.part1.test.ts`、`tests/news-errors.part1.test.ts`。
+测试：`tests/news-primitives.part1.test.ts`、`tests/news-dedup.part1.test.ts`、`tests/news-errors.part1.test.ts`、`tests/news-utils.test.ts`（日期换算、分类字典、URL/标题去重、错误截断脱敏）。
