@@ -89,6 +89,12 @@ Postgres
 - `parseHackerNews` / `parseArxivAtom` / `parseRssFeed` 为纯解析函数（HN Algolia JSON、ArXiv Atom、RSS/Atom），`collectHackerNews` / `collectArxiv` / `collectJiqizhixin` 接收注入的 `fetcher`，`createSourceCollectors` 按来源装配，重试与互斥仍由编排层负责。
 - 端点、关键词（`DEFAULT_AI_KEYWORDS`）与条数上限全部来自 `SourceConfig`/`DEFAULT_SOURCE_CONFIG`，不读取环境变量、不含任何凭据；输出统一为 `RawNewsItem`（`publishedAt` 为 UTC `Date`，`rawExcerpt` 截断 ≤ 2000 字）。
 
+## 8.4 摘要模块（src/app/news-summarize.ts）
+
+- `summarizeNewsItem(input, deps)` / `createSummarizer(deps)` 为纯函数 + 注入式模型调用（模型客户端由 `src/lib` 提供），不读环境变量、不发网络请求。
+- 成功判定：摘要 50–200 字（超长截断至 200）；分类经 `coerceCategory` 归一（含中文别名），非法或缺失兜底 `industry_news`。
+- 失败 / 超时（默认 8000ms，可注入）/ 摘要过短 / 未配置 caller 一律 `summaryStatus=failed`、`summary=null`，返回 `errorCode`（`SUMMARY_UNAVAILABLE` / `SUMMARY_TIMEOUT` / `SUMMARY_INVALID_LENGTH`），不抛错、不中断批次；`errorMessage` 截断 ≤200 字并脱敏。
+
 ## 9. 边界
 
 - 不含账号/收藏、评论点赞、个性化推荐、多语言、原生 App、付费与广告、后台 CMS。
