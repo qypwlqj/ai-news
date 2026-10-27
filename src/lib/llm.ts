@@ -92,3 +92,74 @@ export function parseLlmOutput(raw: string): { summary: string; category: Catego
   if (!isValidSummary(summary)) return null;
   return { summary, category: category as Category };
 }
+
+export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
+
+export const DEFAULT_LLM_BASE_URL = 'https://api.openai.com/v1';
+
+/** 运行时注入的 LLM 配置：凭据只由调用方从环境变量读取，本模块不回显、不落库。 */
+export interface HttpLlmOptions {
+  apiKey: string;
+  model: string;
+  baseUrl?: string;
+  timeoutMs?: number;
+  fetchImpl?: FetchLike;
+}
+
+function readMessageContent(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const choices = (payload as Record<string, unknown>).choices;
+  if (!Array.isArray(choices) || choices.length === 0) return null;
+  const first = choices[0];
+  if (!first || typeof first !== 'object') return null;
+  const message = (first as Record<string, unknown>).message;
+  if (!message || typeof message !== 'object') return null;
+  const content = (message as Record<string, unknown>).content;
+  return typeof content === 'string' && content.trim() ? content : null;
+}
+
+/**
+ * OpenAI 兼容 /chat/completions 客户端。
+ * 超时中断、HTTP 异常与结构异常统一抛 LlmError，message 中不含凭据，便于上层降级为 summary_status=failed。
+ */
+export function createHttpLlmClient(options: HttpLlmOptions): LlmClient {
+  if (!options.apiKey) throw new LlmError('LLM_NOT_CONFIGURED', 'llm api key is missing');
+  if (!options.model) throw new LlmError('LLM_NOT_CONFIGURED', 'llm model is missing');
+  const baseUrl = (options.baseUrl ?? DEFAULT_LLM_BASE_URL).replace(/\/+$/, '');
+  const timeoutMs = options.timeoutMs && options.timeoutMs > 0 ? options.timeoutMs : SUMMARY_TIMEOUT_MS;
+
+  return {
+    async complete(prompt: string): Promise<string> {
+      const fetchImpl = options.fetchImpl ?? (globalThis as { fetch?: FetchLike }).fetch;
+      if (typeof fetchImpl !== 'function') throw new LlmError('LLM_NOT_CONFIGURED', 'fetch is not available');
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        let response: Response;
+        try {
+          response = await fetchImpl(`${baseUrl}/chat/completions`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', authorization: `Bearer ${options.apiKey}` },
+            body: JSON.stringify({ model: options.model, temperature: 0, messages: [{ role: 'user', content: prompt }] }),
+            signal: controller.signal,
+          });
+        } catch (cause) {
+          if (controller.signal.aborted) throw new LlmError('LLM_TIMEOUT', `llm request exceeded ${timeoutMs}ms`);
+          throw new LlmError('LLM_REQUEST_FAILED', cause instanceof Error ? cause.message : 'llm request failed');
+        }
+        if (!response.ok) throw new LlmError('LLM_HTTP_ERROR', `llm responded with status ${response.status}`);
+        let payload: unknown;
+        try {
+          payload = await response.json();
+        } catch {
+          throw new LlmError('LLM_BAD_RESPONSE', 'llm response is not valid JSON');
+        }
+        const content = readMessageContent(payload);
+        if (!content) throw new LlmError('LLM_BAD_RESPONSE', 'llm response has no message content');
+        return content;
+      } finally {
+        clearTimeout(timer);
+      }
+    },
+  };
+}

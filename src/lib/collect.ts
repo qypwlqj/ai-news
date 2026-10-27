@@ -1,6 +1,7 @@
 import { getNewsRepository } from './db/repository';
 import type { CollectRunRecord, CollectRunTotals, NewsRepository } from './db/repository';
 import type { Category, NewsItemRecord, RunStatus, Source, SourceRunStatus } from './types';
+import { SUMMARY_TIMEOUT_MS, truncateSummary } from './llm';
 
 /** 单源最多尝试次数（含首次），对应契约 sources[].attempts ≤ 3。 */
 export const MAX_ATTEMPTS = 3;
@@ -51,6 +52,8 @@ export interface CollectDeps {
   fetcher: SourceFetcher;
   summarizer?: Summarizer;
   now?: () => Date;
+  /** 单条摘要的等待上限，超时即降级为 summary_status=failed，不阻塞批次。 */
+  summaryTimeoutMs?: number;
 }
 
 export interface CollectOptions {
@@ -126,6 +129,16 @@ function newId(): string {
 
 function truncate(value: string): string {
   return value.length > MAX_ERROR_MESSAGE_LENGTH ? value.slice(0, MAX_ERROR_MESSAGE_LENGTH) : value;
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, onTimeout: () => Error): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(onTimeout()), ms);
+  });
+  return Promise.race<T>([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
 }
 
 function toError(cause: unknown): { code: string; message: string } {
@@ -319,11 +332,16 @@ async function persistItem(ctx: RunContext, item: RawItem): Promise<{ inserted: 
 /** LLM 失败降级：条目保留、summary_status=failed、分类兜底 industry_news，不阻塞批次。 */
 async function summarizeItem(ctx: RunContext, record: NewsItemRecord): Promise<boolean> {
   try {
-    const outcome = ctx.deps.summarizer ? await ctx.deps.summarizer(record) : null;
+    const timeoutMs = ctx.deps.summaryTimeoutMs ?? SUMMARY_TIMEOUT_MS;
+    const outcome = ctx.deps.summarizer
+      ? await withTimeout(ctx.deps.summarizer(record), timeoutMs, () =>
+          new CollectError('SUMMARY_TIMEOUT', `summary exceeded ${timeoutMs}ms`),
+        )
+      : null;
     if (!outcome || !outcome.summary || outcome.summary.trim().length === 0) throw new Error('empty summary');
     const category = CATEGORIES.includes(outcome.category) ? outcome.category : DEFAULT_CATEGORY;
     await ctx.repository.saveSummary(record.id, {
-      summary: outcome.summary.slice(0, SUMMARY_MAX_LENGTH),
+      summary: truncateSummary(outcome.summary),
       category,
       summaryStatus: 'ok',
     });
