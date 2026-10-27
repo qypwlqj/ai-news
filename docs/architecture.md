@@ -84,6 +84,11 @@ Postgres
 - 当日已有成功批次且未 `force` → 逐源 `skipped` 的幂等短路；`error.message` 写入前脱敏并截断（≤ 2000 字）。
 - 机器之心 feed 地址、HN 关键词与条数上限全部配置化，默认配置不含任何凭据。
 
+## 8.3 来源适配器（src/app/news-sources.ts）
+
+- `parseHackerNews` / `parseArxivAtom` / `parseRssFeed` 为纯解析函数（HN Algolia JSON、ArXiv Atom、RSS/Atom），`collectHackerNews` / `collectArxiv` / `collectJiqizhixin` 接收注入的 `fetcher`，`createSourceCollectors` 按来源装配，重试与互斥仍由编排层负责。
+- 端点、关键词（`DEFAULT_AI_KEYWORDS`）与条数上限全部来自 `SourceConfig`/`DEFAULT_SOURCE_CONFIG`，不读取环境变量、不含任何凭据；输出统一为 `RawNewsItem`（`publishedAt` 为 UTC `Date`，`rawExcerpt` 截断 ≤ 2000 字）。
+
 ## 9. 边界
 
 - 不含账号/收藏、评论点赞、个性化推荐、多语言、原生 App、付费与广告、后台 CMS。
