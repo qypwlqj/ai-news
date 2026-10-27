@@ -231,6 +231,37 @@ export class InMemoryNewsRepository implements NewsRepository {
   }
 }
 
+export interface NewsListPage {
+  items: NewsItemRecord[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  date: string | null;
+}
+
+/**
+ * 服务端列表页与 GET /api/news 共用的读路径：读仓储 → 时间倒序 + 稳定分页元数据。
+ * 默认 limit=20；summary_status=failed 的条目照常返回（不得因加工失败隐藏）。
+ */
+export async function loadNewsPage(
+  repository: NewsRepository,
+  query: NewsQuery = {},
+): Promise<NewsListPage> {
+  const result = await repository.listNews(query);
+  const totalPages = result.total === 0 ? 0 : Math.ceil(result.total / result.limit);
+  return {
+    items: result.items,
+    page: result.page,
+    limit: result.limit,
+    total: result.total,
+    totalPages,
+    hasNext: result.page * result.limit < result.total,
+    date: query.date ?? null,
+  };
+}
+
 let repository: NewsRepository | null = null;
 
 /** 运行时由 src/lib/db/postgres.ts 注入 Postgres 适配器；未注入时降级为内存实现。 */

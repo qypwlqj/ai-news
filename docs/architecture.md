@@ -69,6 +69,14 @@ Postgres
 - 目标：`GET /api/news` P95 < 300ms，支撑首页 2s 内渲染 ≥ 20 条、切分类 1s 内刷新。
 - `limit` 上限 100，默认 20。
 
+## 8.1 首页与列表页
+
+- 服务端读仓储：页面在服务端调用 `loadNewsPage()`（`src/lib/db/repository.ts`）取数据，输出时间倒序列表，默认 `limit=20`，首屏不依赖浏览器二次请求（对齐「2s 内渲染 ≥20 条」）。
+- 分类筛选：Chip 组取自 `GET /api/categories`，切换后带 `?category=` 重新取数并把 `page` 重置为 1（对齐「切换后 1s 内刷新」）。
+- 跳转原文：标题与「跳转原文 ↗」渲染为 `<a target="_blank" rel="noopener noreferrer">`，仅接受 http/https 绝对地址。
+- 降级展示：`summaryStatus=failed` 显示「摘要生成失败，可点击标题阅读原文」，`pending` 显示「摘要生成中…」，条目照常可见可点。
+- 样式内联（不新增 CSS 依赖）；无结果时展示「该分类今日暂无资讯」。
+
 ## 9. 边界
 
 - 不含账号/收藏、评论点赞、个性化推荐、多语言、原生 App、付费与广告、后台 CMS。
