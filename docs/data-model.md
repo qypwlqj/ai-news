@@ -137,3 +137,10 @@ model NewsItem {
 - 批次日志保留 90 天，按 `run_date` 分批清理（每批 ≤ 1000 行），不使用 `TRUNCATE`。
 - 三张表均不得存储令牌、连接串、环境变量或 LLM 凭据。
 - 迁移只增不改：新增列必须可空或带常量默认值；删除列拆成「先停写 → 观察 → 独立迁移」。
+
+## 7. 仓储接口
+
+- `NewsRepository`（`src/lib/db/repository.ts`）是唯一写入通道：`insertNews` / `listNews` / `getNewsById` / `saveSummary` / `createRun` / `finishRun` / `saveSourceRun` / `getRun` / `listRuns` / `findSuccessfulRun`。
+- 判重语义与索引一致：`normalized_url` 唯一冲突 → `reason=normalized_url`；`(source, external_id)` 冲突 → `reason=external_id`；近 7 天窗口内标题相似度 > 0.9 → `reason=title_similarity`；重复不计入 `inserted`。
+- `InMemoryNewsRepository` 为测试与无库环境的等价实现；Postgres 适配器由 `src/lib/db/postgres.ts` 在运行时注入（`setNewsRepository`），未注入时降级为内存实现。
+- `summary_status=failed` 的条目照常出现在 `listNews` 结果中，不得过滤。
