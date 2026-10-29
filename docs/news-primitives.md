@@ -8,6 +8,7 @@
 | `src/app/news-constants.ts` | 5 类分类字典（`value`/`label`/`order`，`GET /api/categories` 唯一真源）、分页与摘要边界、去重阈值 |
 | `src/app/news-date.ts` | `isIsoDate`、`shanghaiDayRangeUtc`（Asia/Shanghai 自然日 → `[startUtc, endUtc)`）、`toShanghaiDateString`、`shanghaiToday` |
 | `src/app/news-dedup.ts` | `normalizeUrl`、`normalizeTitle`、`titleFingerprint`、`titleSimilarity`、`isSimilarTitle`、`isDuplicateOf` |
+| `src/app/news-auth.ts` | `extractBearerToken`、`timingSafeEqual`、`verifyCronAuth`：`POST /api/cron/collect` 的 Bearer 校验；缺失或格式错误 → `401 UNAUTHORIZED`，不匹配或服务端未配置 → `403 FORBIDDEN`；令牌由调用方注入，模块不读环境变量、不回显明文 |
 | `src/app/news-errors.ts` | `apiErrorBody`、`sanitizeMessage`、`redactSensitive`、`truncateMessage`、`createRequestId`：统一错误信封 `{ error: { code, message, requestId } }` 与脱敏截断（≤ `ERROR_MESSAGE_MAX_CHARS` 2000 字） |
 
 约定：
@@ -21,4 +22,4 @@
 
 - 错误信封：`message` 出参/落库前统一经 `sanitizeMessage`（脱敏连接串、Bearer 令牌与 secret 类键值 + 截断 ≤ 2000 字），绝不回显堆栈、SQL 或环境变量值。
 
-测试：`tests/news-primitives.part1.test.ts`、`tests/news-dedup.part1.test.ts`、`tests/news-errors.part1.test.ts`、`tests/news-utils.test.ts`、`tests/news-query.part10.test.ts`（日期换算、分类字典、URL/标题去重、错误截断脱敏）。
+测试：`tests/news-primitives.part1.test.ts`、`tests/news-dedup.part1.test.ts`、`tests/news-errors.part1.test.ts`、`tests/news-utils.test.ts`、`tests/news-query.part10.test.ts`、`tests/news-auth.part11.test.ts`（日期换算、分类字典、URL/标题去重、错误截断脱敏、Bearer 鉴权 401/403 区分）。
