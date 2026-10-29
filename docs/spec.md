@@ -1,6 +1,6 @@
 # 一期技术规格（冻结项）
 
-本文件冻结领域枚举、去重规则与时间语义，供接口、采集与页面实现共同引用。接口细节见 `docs/api.md`，列级说明与 Prisma 映射见 `docs/data-model.md`，DDL 真源为 `src/lib/db/ddl.ts`。
+本文件冻结领域枚举、去重规则与时间语义，供接口、采集与页面实现共同引用。接口细节见 `docs/api.md`，列级说明与 Prisma 映射见 `docs/data-model.md`，DDL 真源为 `src/app/news-schema.ts`（`SCHEMA_STATEMENTS` / `applySchema()` / `schemaSql()`）。
 
 ## 1. 领域枚举（只加不删不改名）
 

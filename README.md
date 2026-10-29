@@ -37,7 +37,10 @@
 
 - [架构说明](docs/architecture.md)
 - [数据模型](docs/data-model.md)
-- 接口契约、运维手册与示例（后续补充于 `docs/`、`examples/`）
+- [接口契约](docs/api.md)
+- [技术规格](docs/spec.md)
+- [运维手册](docs/runbook.md)
+- [调用示例](examples/curl.md)
 
 ## 测试
 

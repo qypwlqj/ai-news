@@ -1,6 +1,6 @@
 # 数据模型（一期）
 
-DDL 为唯一真源，代码中维护于 `src/lib/db/ddl.ts`；本文件描述结构与索引意图。列名 snake_case，Prisma 侧用 `@map` 对齐。
+DDL 为唯一真源，代码中维护于 `src/app/news-schema.ts`；本文件描述结构与索引意图。列名 snake_case，Prisma 侧用 `@map` 对齐。
 
 ## 1. 枚举
 
