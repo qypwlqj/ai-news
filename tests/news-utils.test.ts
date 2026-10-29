@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { CATEGORIES } from '../src/app/news-constants';
 import { isIsoDate, shanghaiDayRangeUtc, toShanghaiDateString } from '../src/app/news-date';
 import { isSimilarTitle, normalizeUrl } from '../src/app/news-dedup';
