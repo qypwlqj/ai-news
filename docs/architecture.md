@@ -124,3 +124,18 @@ Postgres
 
 - 不含账号/收藏、评论点赞、个性化推荐、多语言、原生 App、付费与广告、后台 CMS。
 - 微信小程序为二期，复用同一 `GET /api/news` 字段集合，不新增私有字段。
+
+## 10. 验收对照（一期）
+
+| 验收条目 | 落点 |
+| --- | --- |
+| AC1 定时触发、单次失败最多重试 3 次 | `src/lib/schedule.ts`（node-cron 08:00 Asia/Shanghai）、`src/app/news-collect-service.ts`（`attempts ≤ 3`）、`docs/runbook.md §1` |
+| AC2 三来源采集 + 来源名/条数/耗时 | `src/app/news-sources.ts` 适配器、`collect_run_sources` 逐源行、`GET /api/collect-runs/{runId}` |
+| AC3 URL 与标题相似度 > 0.9 去重 | `src/app/news-dedup.ts` + `normalized_url` 唯一索引 + 指纹候选窗口（`docs/spec.md §3`） |
+| AC4 summary 50–200 字 + 5 枚举分类 | `src/app/news-summarize.ts`（长度收敛、`coerceCategory` 兜底 `industry_news`） |
+| AC5 LLM 失败降级不阻塞批次 | `summary_status=failed` + `summary=NULL`，条目照常入库并由 `GET /api/news` 返回（见 §4 摘要降级） |
+| AC6 `GET /api/news` 默认 limit=20、字段齐全 | `src/app/news-query.ts` 参数校验与 `serializeNewsList`、`docs/api.md` 的 GET /api/news |
+| AC7 首页 2s 内 ≥20 条、切分类 1s 内刷新 | `src/app/page.ts` 服务端读仓储直出、分类 Chip 切换后重置 `page=1` 并写入 URL query（见 §8.1） |
+| AC8 `POST /api/cron/collect` 独立跑通 | `src/app/api/cron/collect/route.ts` 与 node-cron 共用同一服务层、Bearer 鉴权（`src/app/news-auth.ts`） |
+
+首页与运维页均不提供采集触发入口；页面只渲染 `/api/*` 契约字段，不新增 Web 私有字段。
