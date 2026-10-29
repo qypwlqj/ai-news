@@ -1,122 +1,160 @@
 /**
- * 去重纯函数：URL 归一化（硬去重键）、标题指纹（候选收窄）、
- * 标题相似度（字符二元组 Dice 系数，> 0.9 判为软重复）。无 IO。
+ * 去重纯函数：URL 规范化、标题归一化 / 指纹 / 相似度。
+ * 无 IO、不读环境变量、不发网络请求，供采集入库、查询与页面共用。
  */
 
-import { TITLE_SIMILARITY_THRESHOLD } from './news-constants';
+/** 标题软去重阈值：相似度**严格大于**该值才判为重复（对齐 docs/spec.md §3）。 */
+export const TITLE_SIMILARITY_THRESHOLD = 0.9;
 
-const TRACKING_PARAM_PATTERN =
-  /^(utm_[a-z0-9_]*|fbclid|gclid|dclid|msclkid|yclid|ref|ref_src|ref_url|referrer|spm|mc_cid|mc_eid|igshid|_hsenc|_hsmi)$/;
+/** 追踪参数（另含 `utm_*` 前缀），URL 规范化时剔除，避免同一文章产生多条记录。 */
+const TRACKING_PARAMS: ReadonlySet<string> = new Set([
+  'fbclid',
+  'gclid',
+  'dclid',
+  'msclkid',
+  'yclid',
+  'igshid',
+  'ref',
+  'ref_src',
+  'referrer',
+  'source',
+  'spm',
+  'si',
+  'mc_cid',
+  'mc_eid',
+]);
 
-const FNV_OFFSET_BASIS = 0x811c9dc5;
-const FNV_PRIME = 0x01000193;
-
-function stripTrailingSlash(pathname: string): string {
-  const trimmed = pathname.replace(/\/+$/, '');
-  return trimmed === '' ? '/' : trimmed;
+function isTrackingParam(key: string): boolean {
+  const lower = key.toLowerCase();
+  return lower.startsWith('utm_') || TRACKING_PARAMS.has(lower);
 }
 
 /**
- * URL 归一化：协议与主机小写、去追踪参数、去 fragment、去尾斜杠、查询参数按键排序。
- * 非 http(s) 或无法解析时返回空串（调用方视为无效条目）。
+ * URL 规范化（硬去重键）：协议与主机小写、去 `#fragment`、去追踪参数、
+ * 查询参数按键排序、去掉路径尾斜杠（尾斜杠在查询串之前也会被去掉）。
+ * 非法或非 http(s) 输入原样返回（仅 trim），保证返回值稳定可比较。
  */
 export function normalizeUrl(rawUrl: string): string {
-  const raw = typeof rawUrl === 'string' ? rawUrl.trim() : '';
-  if (raw === '') return '';
+  const input = (rawUrl ?? '').trim();
+  if (!input) return '';
 
   let parsed: URL;
   try {
-    parsed = new URL(raw);
+    parsed = new URL(input);
   } catch {
-    return '';
+    return input;
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return input;
   }
 
-  const protocol = parsed.protocol.toLowerCase();
-  if (protocol !== 'http:' && protocol !== 'https:') return '';
+  const pairs = Array.from(parsed.searchParams.entries())
+    .filter(([key]) => !isTrackingParam(key))
+    .sort(([leftKey, leftValue], [rightKey, rightValue]) =>
+      leftKey === rightKey ? leftValue.localeCompare(rightValue) : leftKey.localeCompare(rightKey),
+    );
+  const search =
+    pairs.length === 0
+      ? ''
+      : `?${pairs
+          .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+          .join('&')}`;
 
-  const entries = [...parsed.searchParams.entries()].filter(
-    ([key]) => !TRACKING_PARAM_PATTERN.test(key.toLowerCase()),
-  );
-  entries.sort(([leftKey, leftValue], [rightKey, rightValue]) => {
-    if (leftKey !== rightKey) return leftKey < rightKey ? -1 : 1;
-    if (leftValue === rightValue) return 0;
-    return leftValue < rightValue ? -1 : 1;
-  });
+  let path = parsed.pathname;
+  while (path.length > 1 && path.endsWith('/')) {
+    path = path.slice(0, -1);
+  }
+  if (path === '/') path = '';
 
-  const search = new URLSearchParams();
-  for (const [key, value] of entries) search.append(key, value);
-  const query = search.toString();
+  const host = parsed.host.toLowerCase();
+  const defaultPort =
+    (parsed.protocol === 'http:' && parsed.port === '80') ||
+    (parsed.protocol === 'https:' && parsed.port === '443');
+  const port = parsed.port && !defaultPort ? `:${parsed.port}` : '';
+  const auth = parsed.username
+    ? `${parsed.username}${parsed.password ? `:${parsed.password}` : ''}@`
+    : '';
 
-  return `${protocol}//${parsed.host.toLowerCase()}${stripTrailingSlash(parsed.pathname)}${
-    query ? `?${query}` : ''
-  }`;
+  return `${parsed.protocol}//${auth}${host}${port}${path}${search}`;
 }
 
-/** 标题归一化：NFKC + 小写 + 去标点与符号 + 空白归一。 */
+/** 标题归一化：NFKC + 小写 + 标点/符号转空格 + 空白归一 + 去首尾空白。 */
 export function normalizeTitle(title: string): string {
-  const raw = typeof title === 'string' ? title : '';
-  return raw
+  return (title ?? '')
     .normalize('NFKC')
     .toLowerCase()
-    .replace(/[\p{P}\p{S}]/gu, ' ')
+    .replace(/[\p{P}\p{S}]+/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
-/** 标题指纹（FNV-1a 32 位，8 位十六进制），仅用于收窄候选，不建唯一约束。 */
+/** 标题指纹（FNV-1a 32 位，8 位十六进制）：仅用于收窄相似度候选，不建唯一约束。 */
 export function titleFingerprint(title: string): string {
   const normalized = normalizeTitle(title);
-  let hash = FNV_OFFSET_BASIS;
-  for (const char of normalized) {
-    hash ^= char.codePointAt(0) ?? 0;
-    hash = Math.imul(hash, FNV_PRIME) >>> 0;
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < normalized.length; index += 1) {
+    hash ^= normalized.charCodeAt(index) & 0xff;
+    hash = Math.imul(hash, 0x01000193) >>> 0;
   }
   return hash.toString(16).padStart(8, '0');
 }
 
 function bigramCounts(value: string): Map<string, number> {
   const counts = new Map<string, number>();
-  const chars = [...value];
-  for (let index = 0; index < chars.length - 1; index += 1) {
-    const gram = chars[index] + chars[index + 1];
+  const chars = Array.from(value);
+  if (chars.length === 0) return counts;
+  if (chars.length === 1) {
+    counts.set(chars[0] as string, 1);
+    return counts;
+  }
+  for (let index = 0; index + 1 < chars.length; index += 1) {
+    const gram = `${chars[index] as string}${chars[index + 1] as string}`;
     counts.set(gram, (counts.get(gram) ?? 0) + 1);
   }
   return counts;
 }
 
-/** 标题相似度：字符二元组 Dice 系数，取值 0–1。 */
+/**
+ * 标题相似度（字符二元组 Dice 系数，取值 0–1）：
+ * 归一化后完全相同为 1；仅标点/大小写差异亦为 1；任一侧为空为 0。
+ */
 export function titleSimilarity(left: string, right: string): number {
   const a = normalizeTitle(left);
   const b = normalizeTitle(right);
-  if (a === b) return a === '' ? 0 : 1;
+  if (!a && !b) return 1;
+  if (!a || !b) return 0;
+  if (a === b) return 1;
 
-  const aCounts = bigramCounts(a);
-  const bCounts = bigramCounts(b);
-  let aTotal = 0;
-  for (const count of aCounts.values()) aTotal += count;
-  let bTotal = 0;
-  for (const count of bCounts.values()) bTotal += count;
-  if (aTotal === 0 || bTotal === 0) return 0;
-
-  let overlap = 0;
-  for (const [gram, count] of aCounts) {
-    overlap += Math.min(count, bCounts.get(gram) ?? 0);
-  }
-  return (2 * overlap) / (aTotal + bTotal);
+  const leftCounts = bigramCounts(a);
+  const rightCounts = bigramCounts(b);
+  let total = 0;
+  let common = 0;
+  leftCounts.forEach((count) => {
+    total += count;
+  });
+  rightCounts.forEach((count, gram) => {
+    total += count;
+    common += Math.min(count, leftCounts.get(gram) ?? 0);
+  });
+  if (total === 0) return 0;
+  return (2 * common) / total;
 }
 
-/** 标题相似度严格大于 0.9 判为重复。 */
+/** 标题是否近似重复：相似度严格大于 {@link TITLE_SIMILARITY_THRESHOLD}。 */
 export function isSimilarTitle(left: string, right: string): boolean {
   return titleSimilarity(left, right) > TITLE_SIMILARITY_THRESHOLD;
 }
 
-/** 候选与既有条目是否重复：URL 归一化相等（硬）或标题相似度 > 0.9（软）。 */
-export function isDuplicateOf(
-  candidate: { url: string; title: string },
-  existing: { url: string; title: string },
-): boolean {
-  const candidateUrl = normalizeUrl(candidate.url);
-  const existingUrl = normalizeUrl(existing.url);
-  if (candidateUrl !== '' && candidateUrl === existingUrl) return true;
-  return isSimilarTitle(candidate.title, existing.title);
+/** 判重所需的字段子集（news_items 写入前的候选，字段可缺省）。 */
+export interface DedupCandidate {
+  url?: string | null;
+  title?: string | null;
+}
+
+/** 两条资讯是否重复：规范化 URL 相等（硬重复）或标题相似度 > 0.9（软重复）。 */
+export function isDuplicateOf(left: DedupCandidate, right: DedupCandidate): boolean {
+  const leftUrl = normalizeUrl(left.url ?? '');
+  const rightUrl = normalizeUrl(right.url ?? '');
+  if (leftUrl && leftUrl === rightUrl) return true;
+  return isSimilarTitle(left.title ?? '', right.title ?? '');
 }
