@@ -19,6 +19,7 @@
 - 去重：URL 归一化后相等为硬重复；标题相似度（字符二元组 Dice 系数）严格大于 `0.9`（`TITLE_SIMILARITY_THRESHOLD`）为软重复，指纹仅用于收窄候选。
 - URL 规范化细则：仅接受 `http`/`https`（其它协议或无法解析的地址返回空串）；协议与主机小写、去默认端口；丢弃 `utm_*`/`fbclid`/`gclid`/`ref` 等追踪参数与 `#fragment`；查询参数按键、值排序；非根路径去尾斜杠，根路径保留 `/`（如 `https://example.com/a/?a=1&b=2` → `https://example.com/a?a=1&b=2`，`https://example.com` → `https://example.com/`）。
 - 标题归一化：NFKC + 小写 + 去标点符号（替换为空格）+ 空白归一，仅标点差异的标题相似度为 `1`。
+- `src/lib/normalize.ts` 为 `src/lib` 层的同一套规则入口（`normalizeUrl` / `normalizeTitle` / `titleFingerprint` / `titleSimilarity` / `isSimilarTitle`），与 `src/app/news-dedup.ts` 行为一致：非 http(s) 协议返回空串、根路径保留 `/`、其余路径去尾斜杠、查询参数按键值排序。
 
 | `src/app/news-query.ts` | `parseNewsListQuery`（`date` → Asia/Shanghai 自然日的 UTC 半开区间、`category`/`source` 枚举、`page`/`limit` 默认 20 上限 100；非法返回 `INVALID_DATE`/`INVALID_CATEGORY`/`INVALID_SOURCE`/`INVALID_PAGINATION`）、`parsePaging`、`readQueryParam`、`buildPageMeta`、`serializeNewsItem`/`serializeNewsList`（`summaryStatus=failed` 照常返回，`summary` 降级为 `null`） |
 
