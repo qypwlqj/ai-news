@@ -20,7 +20,8 @@ function raw(source: Source, index: number): RawItem {
   const [who, what] = WORDS[index % WORDS.length];
   return {
     source,
-    title: `${who} ${what}`,
+    // 标题带来源名：避免三来源同题被 AC3 的「标题相似度 > 0.9 只保留 1 条」软去重误伤夹具
+    title: `${who} ${what} ${source}`,
     url: `https://example.com/${source}/${index}`,
     publishedAt: new Date(`${DATE}T02:00:00.000Z`),
     externalId: `${source}-${index}`,
