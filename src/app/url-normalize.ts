@@ -34,15 +34,17 @@ export function normalizeUrl(input: string): string {
   const protocol = parsed.protocol.toLowerCase();
   if (protocol !== 'http:' && protocol !== 'https:') return '';
 
-  const keys: string[] = [];
+  const keptKeys = new Set<string>();
   parsed.searchParams.forEach((_value, key) => {
-    if (!isTrackingKey(key)) keys.push(key);
+    if (!isTrackingKey(key)) keptKeys.add(key);
   });
-  keys.sort();
+  const keys = Array.from(keptKeys).sort();
 
   const params = new URLSearchParams();
   for (const key of keys) {
-    for (const value of parsed.searchParams.getAll(key)) params.append(key, value);
+    const values = parsed.searchParams.getAll(key);
+    values.sort();
+    for (const value of values) params.append(key, value);
   }
 
   let origin = `${protocol}//${parsed.hostname.toLowerCase()}`;
