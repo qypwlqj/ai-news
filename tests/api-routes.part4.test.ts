@@ -10,7 +10,7 @@ function request(url: string): Request {
   return new Request(url);
 }
 
-function paramsOf(values: Record<string, string>) {
+function paramsOf<T extends Record<string, string>>(values: T) {
   return { params: Promise.resolve(values) };
 }
 
@@ -18,6 +18,8 @@ const newsRecord = {
   id: 'route-news-1',
   title: '模型发布速览',
   url: 'https://example.com/route-news-1',
+  normalizedUrl: 'https://example.com/route-news-1',
+  titleFingerprint: 'a1b2c3d4',
   source: 'hacker_news' as const,
   externalId: 'hn-route-news-1',
   publishedAt: new Date('2025-06-01T00:00:00.000Z'),

@@ -147,6 +147,32 @@ function toError(cause: unknown): { code: string; message: string } {
   return { code: 'FETCH_FAILED', message: truncate(message) };
 }
 
+/** URL 规范化去重键：仅 http(s)，去 fragment、主机小写、查询串排序、去尾斜杠（根路径除外）。 */
+function buildNormalizedUrl(raw: string): string {
+  try {
+    const url = new URL(raw.trim());
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+    url.hash = '';
+    const params = [...url.searchParams.entries()].sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
+    const search = params.length > 0 ? '?' + params.map(([key, value]) => key + '=' + value).join('&') : '';
+    const pathname = url.pathname.replace(/\/+$/, '');
+    return url.protocol + '//' + url.host.toLowerCase() + pathname + search;
+  } catch {
+    return raw.trim();
+  }
+}
+
+/** 标题指纹：NFKC + 小写 + 去标点空白后取 FNV-1a 8 位十六进制，仅用于收窄相似度候选。 */
+function fingerprintTitle(title: string): string {
+  const normalized = title.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  let hash = 0x811c9dc5;
+  for (const char of normalized) {
+    hash ^= char.codePointAt(0) ?? 0;
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
+}
+
 function toPublic(outcome: SourceOutcome): CollectSourceResult {
   return {
     source: outcome.source,
@@ -316,6 +342,8 @@ async function persistItem(ctx: RunContext, item: RawItem): Promise<{ inserted: 
     id: newId(),
     title: item.title,
     url: item.url,
+    normalizedUrl: buildNormalizedUrl(item.url),
+    titleFingerprint: fingerprintTitle(item.title),
     source: item.source,
     externalId: item.externalId ?? null,
     publishedAt: item.publishedAt,

@@ -22,13 +22,15 @@ function item(index: number, overrides: Partial<NewsItemRecord> = {}): NewsItemR
     id: `n${String(index).padStart(3, '0')}`,
     title: uniqueTitle(index),
     url: `https://example.com/a${index}`,
+    normalizedUrl: `https://example.com/a${index}`,
+    titleFingerprint: `fingerprint-${index}`,
     source: 'hacker_news',
     publishedAt: new Date(BASE - index * 60_000),
     summary: `摘要内容 ${index}`,
     summaryStatus: 'ok',
     category: index % 2 === 0 ? 'model_release' : 'research_paper',
     ...overrides,
-  };
+  } as NewsItemRecord;
 }
 
 async function seeded(count: number): Promise<InMemoryNewsRepository> {

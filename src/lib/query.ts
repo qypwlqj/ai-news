@@ -99,7 +99,7 @@ export function toNewsItemDto(item: NewsItemRecord): NewsItemDto {
     summaryStatus: item.summaryStatus,
     category: item.category,
     titleFingerprint: item.titleFingerprint,
-    createdAt: item.createdAt.toISOString(),
+    createdAt: (item.createdAt ?? item.publishedAt).toISOString(),
   };
 }
 

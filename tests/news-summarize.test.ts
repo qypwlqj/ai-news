@@ -117,7 +117,7 @@ test('网络异常降级 failed，不泄露配置', async () => {
 
 test('超时降级为 SUMMARY_TIMEOUT，批次不中断', async () => {
   const hanging: LlmFetch = () => new Promise(() => {});
-  const summarize = createLlmSummarizer({ ...CONFIG, timeoutMs: 10 }, { fetchImpl: hanging, timeoutMs: 10 });
+  const summarize = createLlmSummarizer(CONFIG, { fetchImpl: hanging, timeoutMs: 10 });
   const outcome = await summarize({ title: 't' });
   assert.equal(outcome.summaryStatus, 'failed');
   assert.equal(outcome.summary, null);
