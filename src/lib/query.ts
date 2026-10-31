@@ -104,7 +104,9 @@ export function toNewsItemDto(item: NewsItemRecord): NewsItemDto {
 }
 
 export function toNewsListResponse(result: NewsListResult, date: string | null): NewsListResponse {
-  const totalPages = Math.ceil(result.total / result.limit);
+  // 列表接口约定至少回显 1 页（空结果也返回 totalPages=1、hasNext=false），
+  // 与仓储层「无数据 totalPages=0」的内部语义区分开。
+  const totalPages = Math.max(1, Math.ceil(result.total / result.limit));
   return {
     items: result.items.map(toNewsItemDto),
     page: result.page,

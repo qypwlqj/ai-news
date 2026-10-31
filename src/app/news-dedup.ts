@@ -42,10 +42,10 @@ export function normalizeUrl(rawUrl: string): string {
   try {
     parsed = new URL(input);
   } catch {
-    return input;
+    return '';
   }
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    return input;
+    return '';
   }
 
   const pairs = Array.from(parsed.searchParams.entries())
@@ -64,7 +64,8 @@ export function normalizeUrl(rawUrl: string): string {
   while (path.length > 1 && path.endsWith('/')) {
     path = path.slice(0, -1);
   }
-  if (path === '/') path = '';
+  // 根路径保留 `/`（如 https://example.com → https://example.com/），只去掉非根路径尾斜杠。
+  if (path === '') path = '/';
 
   const host = parsed.host.toLowerCase();
   const defaultPort =
@@ -121,23 +122,27 @@ function bigramCounts(value: string): Map<string, number> {
 export function titleSimilarity(left: string, right: string): number {
   const a = normalizeTitle(left);
   const b = normalizeTitle(right);
-  if (!a && !b) return 1;
+  // 空标题不视为重复（对齐入库去重语义）。
   if (!a || !b) return 0;
   if (a === b) return 1;
 
   const leftCounts = bigramCounts(a);
   const rightCounts = bigramCounts(b);
-  let total = 0;
+  let leftTotal = 0;
+  let rightTotal = 0;
   let common = 0;
-  leftCounts.forEach((count) => {
-    total += count;
+  leftCounts.forEach((count, gram) => {
+    leftTotal += count;
+    common += Math.min(count, rightCounts.get(gram) ?? 0);
   });
-  rightCounts.forEach((count, gram) => {
-    total += count;
-    common += Math.min(count, leftCounts.get(gram) ?? 0);
+  rightCounts.forEach((count) => {
+    rightTotal += count;
   });
-  if (total === 0) return 0;
-  return (2 * common) / total;
+  if (leftTotal === 0 || rightTotal === 0) return 0;
+  // Dice 系数在「短标题是长标题前缀 + 少量后缀」时恰好卡在 0.9，补充包含度以覆盖该边界。
+  const dice = (2 * common) / (leftTotal + rightTotal);
+  const containment = common / Math.min(leftTotal, rightTotal);
+  return Math.max(dice, containment);
 }
 
 /** 标题是否近似重复：相似度严格大于 {@link TITLE_SIMILARITY_THRESHOLD}。 */

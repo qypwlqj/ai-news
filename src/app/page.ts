@@ -1,3 +1,4 @@
+import { createElement } from 'react';
 import { listNews } from '../lib/query';
 import { categoryChipsHtml } from '../components/CategoryChips';
 import { escapeHtml, newsListHtml } from '../components/NewsCard';
@@ -21,8 +22,14 @@ export function toSearchParams(input: SearchParamsInput): URLSearchParams {
   return params;
 }
 
-/** 服务端直出首页列表：URL query 同步 category/date/page，默认 limit=20。 */
-export async function renderHomePage(search: URLSearchParams): Promise<string> {
+interface HomeView {
+  category: string | null;
+  date: string | null;
+  content: string;
+}
+
+/** 服务端渲染首页主体（分类栏 + 列表 + 分页），供整页 HTML 与 App Router 页面共用。 */
+async function buildHomeView(search: URLSearchParams): Promise<HomeView> {
   const category = search.get('category');
   const date = search.get('date');
   const result = await listNews(search);
@@ -32,6 +39,15 @@ export async function renderHomePage(search: URLSearchParams): Promise<string> {
   const body = result.ok
     ? newsListHtml(items)
     : '<p class="state state--error text-sm text-slate-500">加载失败，请稍后重试</p>';
+  const content = `<section class="mb-4">${categoryChipsHtml(category, date)}</section>
+${body}
+${paginationHtml({ page, totalPages: value?.totalPages ?? 0, total: value?.total ?? 0, category, date })}`;
+  return { category, date, content };
+}
+
+/** 服务端直出首页列表：URL query 同步 category/date/page，默认 limit=20。 */
+export async function renderHomePage(search: URLSearchParams): Promise<string> {
+  const { date, content } = await buildHomeView(search);
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -45,19 +61,21 @@ export async function renderHomePage(search: URLSearchParams): Promise<string> {
 <p class="text-xs text-slate-500">${escapeHtml(date ?? '')}</p>
 </header>
 <main class="mx-auto max-w-[1120px] px-4 pb-16">
-<section class="mb-4">${categoryChipsHtml(category, date)}</section>
-${body}
-${paginationHtml({ page, totalPages: value?.totalPages ?? 0, total: value?.total ?? 0, category, date })}
+${content}
 </main>
 </body>
 </html>`;
 }
 
+/**
+ * App Router 首页：必须返回 ReactNode（不能直接返回 Response），
+ * 这里复用服务端构造的列表片段并交给根 layout 包裹文档结构。
+ */
 export default async function Page({
   searchParams,
 }: {
   searchParams?: Promise<SearchParamsInput> | SearchParamsInput;
-} = {}): Promise<Response> {
-  const html = await renderHomePage(toSearchParams(await searchParams));
-  return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } });
+} = {}) {
+  const { content } = await buildHomeView(toSearchParams(await searchParams));
+  return createElement('div', { dangerouslySetInnerHTML: { __html: content } });
 }

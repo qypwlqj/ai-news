@@ -100,22 +100,27 @@ function bigramCounts(value: string): Map<string, number> {
 export function titleSimilarity(left: string, right: string): number {
   const a = normalizeTitle(left).replace(/\s+/g, '');
   const b = normalizeTitle(right).replace(/\s+/g, '');
+  if (a.length === 0 && b.length === 0) return 1;
   if (a.length === 0 || b.length === 0) return 0;
   if (a === b) return 1;
 
   const leftCounts = bigramCounts(a);
   const rightCounts = bigramCounts(b);
   let overlap = 0;
-  let total = 0;
+  let leftTotal = 0;
+  let rightTotal = 0;
   leftCounts.forEach((count, gram) => {
-    total += count;
+    leftTotal += count;
     overlap += Math.min(count, rightCounts.get(gram) ?? 0);
   });
   rightCounts.forEach((count) => {
-    total += count;
+    rightTotal += count;
   });
-  if (total === 0) return 0;
-  return (2 * overlap) / total;
+  if (leftTotal === 0 || rightTotal === 0) return 0;
+  // Dice 系数在「短标题是长标题前缀 + 少量后缀」时恰好卡在 0.9，补充包含度以覆盖该边界。
+  const dice = (2 * overlap) / (leftTotal + rightTotal);
+  const containment = overlap / Math.min(leftTotal, rightTotal);
+  return Math.max(dice, containment);
 }
 
 /** 是否判为近似重复：相似度严格大于 0.9。 */

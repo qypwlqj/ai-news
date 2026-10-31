@@ -11,7 +11,7 @@ import {
 } from '../src/lib/llm';
 import { LLM_INVALID_OUTPUT_CODE, LLM_NOT_CONFIGURED_CODE, LLM_TIMEOUT_CODE, summarizeNews } from '../src/lib/summarize';
 
-const LONG_ZH = '模型发布'.repeat(15);
+const LONG_ZH = '模型发布'.repeat(60);
 const SUMMARY_OK = '这是一个用来验证摘要长度校验的中文摘要文本，内容需要达到五十个字符的下限，因此这里继续补充一些描述性文字以保证长度符合要求。';
 
 function okPayload(overrides: Record<string, unknown> = {}): string {

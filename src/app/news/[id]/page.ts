@@ -1,3 +1,5 @@
+import { createElement } from 'react';
+import { notFound } from 'next/navigation';
 import { getNewsRepository } from '../../../lib/db/repository';
 import { categoryLabel, escapeHtml, formatShanghai, isSafeUrl, sourceLabel } from '../../../components/NewsCard';
 
@@ -25,8 +27,14 @@ function shell(title: string, content: string): string {
 </html>`;
 }
 
-/** 只读详情页：字段缺失/摘要失败一律降级展示；不存在返回 404 空态。 */
-export async function renderNewsDetail(id: string): Promise<DetailRenderResult> {
+interface NewsDetailView {
+  status: number;
+  title: string;
+  content: string;
+}
+
+/** 只读详情页主体：字段缺失/摘要失败一律降级展示；不存在返回 404 空态。 */
+export async function buildNewsDetail(id: string): Promise<NewsDetailView> {
   let record = null;
   try {
     record = id ? await getNewsRepository().getNewsById(id) : null;
@@ -36,10 +44,9 @@ export async function renderNewsDetail(id: string): Promise<DetailRenderResult> 
   if (!record) {
     return {
       status: 404,
-      html: shell(
-        '资讯不存在',
+      title: '资讯不存在',
+      content:
         '<p class="text-sm text-slate-500">资讯不存在或已下线</p><p class="mt-4 text-sm"><a class="text-blue-600" href="/">返回首页</a></p>',
-      ),
     };
   }
   const href = isSafeUrl(record.url) ? escapeHtml(record.url) : '';
@@ -54,18 +61,26 @@ export async function renderNewsDetail(id: string): Promise<DetailRenderResult> 
 <h1 class="mb-3 text-2xl font-semibold leading-snug">${escapeHtml(record.title || '（无标题）')}</h1>
 ${summary}
 <p class="mt-4 flex items-center gap-3 text-sm"><span class="rounded bg-slate-100 px-2 py-0.5 text-slate-600">${escapeHtml(categoryLabel(record.category))}</span>${href ? `<a class="text-blue-600" href="${href}" target="_blank" rel="noopener noreferrer">阅读原文 ↗</a>` : ''}</p>`;
-  return { status: 200, html: shell(record.title || '资讯详情', content) };
+  return { status: 200, title: record.title || '资讯详情', content };
 }
 
+/** 完整 HTML 文档（供运维/单测直接复用）。 */
+export async function renderNewsDetail(id: string): Promise<DetailRenderResult> {
+  const view = await buildNewsDetail(id);
+  return { status: view.status, html: shell(view.title, view.content) };
+}
+
+/**
+ * App Router 详情页：必须返回 ReactNode（不能直接返回 Response），
+ * 详情片段由服务端构造后交给根 layout 包裹。
+ */
 export default async function Page({
   params,
 }: {
   params?: Promise<{ id: string }> | { id: string };
-} = {}): Promise<Response> {
+} = {}) {
   const resolved = await params;
-  const result = await renderNewsDetail(resolved?.id ?? '');
-  return new Response(result.html, {
-    status: result.status,
-    headers: { 'content-type': 'text/html; charset=utf-8' },
-  });
+  const view = await buildNewsDetail(resolved?.id ?? '');
+  if (view.status === 404) notFound();
+  return createElement('div', { dangerouslySetInnerHTML: { __html: view.content } });
 }

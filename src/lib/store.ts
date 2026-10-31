@@ -137,7 +137,12 @@ export function titleSimilarity(left: string, right: string): number {
   const rightCounts = bigramCounts(right);
   let overlap = 0;
   for (const [gram, count] of leftCounts) overlap += Math.min(count, rightCounts.get(gram) ?? 0);
-  return (2 * overlap) / (left.length - 1 + (right.length - 1));
+  const leftTotal = left.length - 1;
+  const rightTotal = right.length - 1;
+  // Dice 系数在「短标题是长标题前缀 + 少量后缀」时恰好卡在 0.9，补充包含度以覆盖该边界。
+  const dice = (2 * overlap) / (leftTotal + rightTotal);
+  const containment = overlap / Math.min(leftTotal, rightTotal);
+  return Math.max(dice, containment);
 }
 
 function normalizePage(value?: number): number {

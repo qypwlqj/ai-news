@@ -6,15 +6,35 @@ import type { NewsItemRecord } from '../src/lib/types';
 const BASE = Date.parse('2025-06-01T00:00:00.000Z');
 
 /** 生成差异明显的标题，避免触发标题相似度去重（> 0.9）。 */
+const TITLE_SUBJECTS = [
+  'quantum',
+  'robotic',
+  'climate',
+  'medical',
+  'legal',
+  'retail',
+  'space',
+  'energy',
+  'biotech',
+  'finance',
+] as const;
+const TITLE_OBJECTS = [
+  'chip',
+  'surgery',
+  'policy',
+  'imaging',
+  'contract',
+  'pricing',
+  'probe',
+  'storage',
+  'trial',
+  'ledger',
+] as const;
+
 function uniqueTitle(index: number): string {
-  const alphabet = 'abcdefghijklmnopqrstuvwxyz';
-  let out = '';
-  let n = index + 7;
-  while (n > 0) {
-    out += alphabet[n % 26];
-    n = Math.floor(n / 26);
-  }
-  return `News ${out.toUpperCase()}${index} long report item`;
+  const subject = TITLE_SUBJECTS[index % TITLE_SUBJECTS.length];
+  const object = TITLE_OBJECTS[Math.floor(index / TITLE_SUBJECTS.length) % TITLE_OBJECTS.length];
+  return `${subject} ${object} item ${index} briefing`;
 }
 
 function item(index: number, overrides: Partial<NewsItemRecord> = {}): NewsItemRecord {

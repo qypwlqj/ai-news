@@ -22,7 +22,7 @@ test('normalizeUrl：去掉尾斜杠并保留排序后的查询串', () => {
 test('normalizeUrl：空值与非法输入保持稳定且不抛错', () => {
   assert.equal(normalizeUrl(''), '');
   assert.equal(normalizeUrl('   '), '');
-  assert.equal(normalizeUrl('not a url'), 'not a url');
+  assert.equal(normalizeUrl('not a url'), '');
 });
 
 test('normalizeTitle：仅标点与大小写差异视为同一标题', () => {

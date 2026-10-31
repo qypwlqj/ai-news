@@ -34,11 +34,11 @@ describe('normalizeUrl', () => {
 
   it('空值与非法 URL 降级而不抛错', () => {
     assert.equal(normalizeUrl('   '), '');
-    assert.equal(normalizeUrl('not a url'), 'not a url');
+    assert.equal(normalizeUrl('not a url'), '');
   });
 
-  it('非 http(s) 协议原样返回', () => {
-    assert.equal(normalizeUrl('ftp://example.com/a'), 'ftp://example.com/a');
+  it('非 http(s) 协议返回空串', () => {
+    assert.equal(normalizeUrl('ftp://example.com/a'), '');
   });
 });
 

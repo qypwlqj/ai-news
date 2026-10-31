@@ -20,8 +20,9 @@ export function normalizeUrl(input: string): string {
   url.search = '';
   for (const [key, value] of kept) url.searchParams.append(key, value);
 
-  const normalized = url.toString();
-  return url.pathname !== '/' && normalized.endsWith('/') ? normalized.slice(0, -1) : normalized;
+  // 非根路径去掉尾斜杠（包括查询串之前的尾斜杠），根路径保留 `/`。
+  const pathname = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, '') : url.pathname;
+  return `${url.protocol}//${url.host}${pathname === '' ? '/' : pathname}${url.search}`;
 }
 
 export function titleFingerprint(title: string): string {

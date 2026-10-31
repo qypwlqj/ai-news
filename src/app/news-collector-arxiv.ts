@@ -71,10 +71,17 @@ export function decodeEntities(input: string): string {
   });
 }
 
-/** 去 CDATA、去标签、解码实体并压缩空白。 */
+/**
+ * 去 CDATA、解码实体、去标签并压缩空白。
+ * Atom 的 summary 常把 HTML 再转义一层（`&lt;p&gt;…&lt;/p&gt;`），
+ * 因此先解码再剥离标签，并重复一轮以兼容双重转义。
+ */
 export function stripHtml(input: string): string {
-  const text = input.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/<[^>]*>/g, ' ');
-  return decodeEntities(text).replace(/\s+/g, ' ').trim();
+  let text = input.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1');
+  for (let pass = 0; pass < 2; pass += 1) {
+    text = decodeEntities(text).replace(/<[^>]*>/g, ' ');
+  }
+  return text.replace(/\s+/g, ' ').trim();
 }
 
 function readTag(block: string, tag: string): string | null {
@@ -117,7 +124,8 @@ export function truncateExcerpt(text: string, max = RAW_EXCERPT_MAX_CHARS): stri
 }
 
 function normalizeMaxItems(value: number, fallback: number): number {
-  return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
+  // 显式传入 0 表示不取任何条目；仅缺失/非法值才回退到默认上限。
+  return Number.isFinite(value) && value >= 0 ? Math.floor(value) : fallback;
 }
 
 function arxivExternalId(url: string): string | null {
