@@ -148,7 +148,8 @@ export function buildPaginationView(input: PaginationInput = {}): PaginationView
   const total = toCount(input.total);
   const limit = toCount(input.limit) || NEWS_LIST_DEFAULT_LIMIT;
   const declared = toCount(input.totalPages);
-  const totalPages = declared > 0 ? declared : Math.max(1, Math.ceil(total / limit));
+  const derived = total > 0 ? Math.ceil(total / limit) : 0;
+  const totalPages = Math.max(1, declared, derived);
   const page = Math.min(Math.max(resolveListPage(input.page), 1), totalPages);
   const query = input.query ?? {};
   return {
