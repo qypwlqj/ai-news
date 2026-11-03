@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import * as queryModule from '../src/app/news-query.ts';
+import * as queryModule from '../src/app/news-query';
 import {
   CATEGORY_DICTIONARY,
   categoryLabel,
   isCategoryValue,
-} from '../src/app/news-api-types.ts';
+} from '../src/app/news-api-types';
 
 /**
  * 查询层契约测试：只验证对外语义（默认 limit=20、非法参数被拒绝、分类枚举单一真源、
