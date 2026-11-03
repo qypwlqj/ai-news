@@ -56,18 +56,24 @@ const ENTITIES: Record<string, string> = {
   nbsp: ' ',
 };
 
-/** 解码常见 XML 实体与数字实体，未知实体原样保留。 */
+/** 码点是否可安全交给 String.fromCodePoint：整数、0..0x10FFFF 且不在代理区。 */
+function isValidCodePoint(value: number): boolean {
+  return (
+    Number.isInteger(value) && value >= 0 && value <= 0x10ffff && (value < 0xd800 || value > 0xdfff)
+  );
+}
+
+function codePointToString(value: number, fallback: string): string {
+  return isValidCodePoint(value) ? String.fromCodePoint(value) : fallback;
+}
+
+/** 解码常见 XML 实体与数字实体；码点非法或实体未知时原样保留，绝不抛错。 */
 export function decodeEntities(input: string): string {
   return input.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (match, code: string) => {
-    if (/^#x/i.test(code)) {
-      const value = Number.parseInt(code.slice(2), 16);
-      return Number.isFinite(value) ? String.fromCodePoint(value) : match;
-    }
-    if (code.startsWith('#')) {
-      const value = Number.parseInt(code.slice(1), 10);
-      return Number.isFinite(value) ? String.fromCodePoint(value) : match;
-    }
-    return ENTITIES[code.toLowerCase()] ?? match;
+    if (/^#x/i.test(code)) return codePointToString(Number.parseInt(code.slice(2), 16), match);
+    if (code.startsWith('#')) return codePointToString(Number.parseInt(code.slice(1), 10), match);
+    const key = code.toLowerCase();
+    return Object.prototype.hasOwnProperty.call(ENTITIES, key) ? (ENTITIES[key] as string) : match;
   });
 }
 

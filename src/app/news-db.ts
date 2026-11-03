@@ -73,8 +73,8 @@ export function createDatabase(pool: DbPool): Database {
     }
 
     const client = await pool.connect();
-    await client.query('BEGIN');
     try {
+      await client.query('BEGIN');
       const value = await fn(client);
       await client.query('COMMIT');
       return value;

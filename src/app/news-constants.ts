@@ -68,11 +68,13 @@ export function listCategories(): CategoryOption[] {
 
 /** 未知枚举降级为原值文本，不报错、不隐藏条目。 */
 export function categoryLabel(value: string): string {
-  return (CATEGORY_LABELS as Record<string, string>)[value] ?? value;
+  const labels = CATEGORY_LABELS as Record<string, string>;
+  return Object.prototype.hasOwnProperty.call(labels, value) ? (labels[value] as string) : value;
 }
 
 export function sourceLabel(value: string): string {
-  return (SOURCE_LABELS as Record<string, string>)[value] ?? value;
+  const labels = SOURCE_LABELS as Record<string, string>;
+  return Object.prototype.hasOwnProperty.call(labels, value) ? (labels[value] as string) : value;
 }
 
 /** 供测试/校验：字典 value 顺序必须与 category_enum 完全一致。 */

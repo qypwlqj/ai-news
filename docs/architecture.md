@@ -88,6 +88,7 @@ Postgres
 
 - `parseHackerNews` / `parseArxivAtom` / `parseRssFeed` 为纯解析函数（HN Algolia JSON、ArXiv Atom、RSS/Atom），`collectHackerNews` / `collectArxiv` / `collectJiqizhixin` 接收注入的 `fetcher`，`createSourceCollectors` 按来源装配，重试与互斥仍由编排层负责。
 - 端点、关键词（`DEFAULT_AI_KEYWORDS`）与条数上限全部来自 `SourceConfig`/`DEFAULT_SOURCE_CONFIG`，不读取环境变量、不含任何凭据；输出统一为 `RawNewsItem`（`publishedAt` 为 UTC `Date`，`rawExcerpt` 截断 ≤ 2000 字）。
+- 回源端点固定使用 HTTPS（如 `https://export.arxiv.org/api/query`），默认配置中不出现 `http://`；`decodeEntities` 校验码点（整数、0..0x10FFFF、排除代理区）失败时原样保留实体，`normalizeUrl` 只拼接一次端口，标签查询仅取自有属性，事务内 `BEGIN` 失败也保证释放连接。
 
 ## 8.5 采集器基础层（src/app/news-collectors.ts）
 

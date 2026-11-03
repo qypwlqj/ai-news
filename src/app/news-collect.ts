@@ -44,7 +44,7 @@ export const DEFAULT_COLLECT_CONFIG: CollectConfig = {
     keywords: ['AI', 'LLM', 'GPT', 'machine learning'],
     limit: 50,
   },
-  arxiv: { apiBase: 'http://export.arxiv.org/api/query', category: 'cs.AI', maxResults: 50 },
+  arxiv: { apiBase: 'https://export.arxiv.org/api/query', category: 'cs.AI', maxResults: 50 },
   jiqizhixin: { feedUrl: '' },
 };
 

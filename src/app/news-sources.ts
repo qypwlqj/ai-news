@@ -62,7 +62,7 @@ export const DEFAULT_SOURCE_CONFIG: SourceConfig = {
   },
   arxiv: {
     endpoint:
-      'http://export.arxiv.org/api/query?search_query=cat:cs.AI&sortBy=submittedDate&sortOrder=descending&max_results=50',
+      'https://export.arxiv.org/api/query?search_query=cat:cs.AI&sortBy=submittedDate&sortOrder=descending&max_results=50',
     maxResults: 50,
   },
   jiqizhixin: {

@@ -67,7 +67,8 @@ export function normalizeUrl(rawUrl: string): string {
   // 根路径保留 `/`（如 https://example.com → https://example.com/），只去掉非根路径尾斜杠。
   if (path === '') path = '/';
 
-  const host = parsed.host.toLowerCase();
+  // URL.host 已含端口，这里只取 hostname，端口由下方单独拼接，避免出现 host:port:port。
+  const host = parsed.hostname.toLowerCase();
   const defaultPort =
     (parsed.protocol === 'http:' && parsed.port === '80') ||
     (parsed.protocol === 'https:' && parsed.port === '443');
