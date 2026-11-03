@@ -133,6 +133,8 @@
 
 固定 5 项且顺序稳定：`model_release`（模型发布）、`research_paper`（研究论文）、`product_application`（产品应用）、`industry_news`（行业动态）、`policy_funding`（政策融资）。错误码：`500 INTERNAL_ERROR`。
 
+字典唯一真源为 `src/app/news-api-types.ts` 的 `CATEGORY_DICTIONARY`（`value`/`label`/`order`），筛选校验走 `isCategoryValue`、展示走 `categoryLabel`；未知值降级为原值文本 + 中性样式。
+
 ## GET /api/collect-runs
 
 | 参数 | 类型 | 说明 |

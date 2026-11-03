@@ -1,4 +1,4 @@
-import { CATEGORIES } from './news-constants';
+import { isCategoryValue } from './news-api-types';
 import { isIsoDate, shanghaiDayRangeUtc } from './news-date';
 
 /**
@@ -87,7 +87,7 @@ export function parseNewsListQuery(params: QueryParams = {}): NewsListQueryResul
     return { ok: false, code: 'INVALID_DATE', message: 'date must be YYYY-MM-DD' };
   }
   const category = readQueryParam(params, 'category');
-  if (category !== null && !CATEGORIES.some((item) => item.value === category)) {
+  if (category !== null && !isCategoryValue(category)) {
     return { ok: false, code: 'INVALID_CATEGORY', message: 'unknown category' };
   }
   const source = readQueryParam(params, 'source');
