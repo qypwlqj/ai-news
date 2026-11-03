@@ -83,7 +83,9 @@ test('分页视图：共 N 条、空集 totalPages=1、页码窗口与链接', (
   assert.equal(empty.prevHref, null);
   assert.equal(empty.nextHref, null);
 
-  const clamped = buildPaginationView({ page: 9, total: 200, limit: 20, query: { category: 'industry_news' } });
+  // page=99 超出末页（200 条 / 每页 20 条 = 10 页），应被钳制到第 10 页。
+  const clamped = buildPaginationView({ page: 99, total: 200, limit: 20, query: { category: 'industry_news' } });
+  assert.equal(clamped.totalPages, 10);
   assert.equal(clamped.page, 10);
   assert.equal(clamped.nextHref, null);
   assert.equal(clamped.prevHref, '/?category=industry_news&page=9');
