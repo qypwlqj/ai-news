@@ -4,3 +4,10 @@ coverage/
 *.tsbuildinfo
 .env*
 !.env.example
+output/playwright/
+.playwright-cli/
+*.profraw
+dist/
+.taro/
+.swc/
+apps/miniapp/project.private.config.json

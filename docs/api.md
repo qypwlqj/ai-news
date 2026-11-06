@@ -19,6 +19,7 @@
 | `date` | `YYYY-MM-DD` | 按 Asia/Shanghai 自然日过滤；缺省不做日期过滤 |
 | `category` | 5 枚举之一 | `model_release` / `research_paper` / `product_application` / `industry_news` / `policy_funding` |
 | `source` | 3 枚举之一 | `hacker_news` / `arxiv_cs_ai` / `jiqizhixin` |
+| `q` | string，最多 120 字 | 可选关键词；去首尾空白，忽略大小写，匹配标题或摘要，在分页前过滤；空字符串不筛选 |
 | `page` | integer ≥ 1 | 默认 1 |
 | `limit` | integer 1..100 | 默认 20 |
 
@@ -52,13 +53,13 @@
 
 - `items` 按 `publishedAt DESC, id DESC` 排序，稳定分页。
 - 每条必含 `id/title/url/source/publishedAt/summary/category/summaryStatus`；`summaryStatus=failed` 时 `summary` 为 `null`，但条目必须出现，不得隐藏。
-- 错误码：`400 INVALID_DATE`、`400 INVALID_CATEGORY`、`400 INVALID_SOURCE`、`400 INVALID_PAGINATION`、`500 INTERNAL_ERROR`；非法枚举不静默忽略。
+- 错误码：`400 INVALID_DATE`、`400 INVALID_CATEGORY`、`400 INVALID_SOURCE`、`400 INVALID_QUERY`（关键词过长）、`400 INVALID_PAGINATION`、`500 INTERNAL_ERROR`；非法枚举不静默忽略。
 
 ## POST /api/cron/collect
 
-外部调度兜底入口，与应用内 node-cron 共用同一服务层。
+独立 Node 服务的采集入口；默认执行器已装配来源适配器与摘要客户端。定时注册尚未接入启动流程，可由外部调度触发。
 
-请求头：`Authorization: Bearer <CRON_SECRET>`（必需）、可选 `Idempotency-Key`。
+请求头：`Authorization: Bearer <CRON_SECRET>`（必需）。当前幂等依据为采集日期，不处理独立 Idempotency-Key。
 
 请求体（可选，空 body 合法）：
 
@@ -67,7 +68,7 @@
 ```
 
 - `date` 缺省为当日 Asia/Shanghai；`sources` 缺省为全部 3 个来源；`force=true` 忽略当日已成功的幂等短路。
-- 同步执行一轮采集（含单源重试，`attempts ≤ 3`），超时上限固定 300s。
+- 同步执行一轮采集（含单源重试，`attempts ≤ 3`），来源与摘要有独立超时；尚无批次整体 300s 截断。
 
 200 响应（至少一个来源成功，可为 `partial_failure`）：
 
@@ -125,7 +126,7 @@
 
 ## GET /api/categories
 
-无参数、无请求体；分类 Chip 的 `label`/`order` 唯一来源，前端不得硬编码。
+无参数、无请求体；与小程序共用 `packages/contracts/src/index.ts` 的分类字典。
 
 ```json
 { "items": [ { "value": "model_release", "label": "模型发布", "order": 1 } ] }
@@ -133,7 +134,7 @@
 
 固定 5 项且顺序稳定：`model_release`（模型发布）、`research_paper`（研究论文）、`product_application`（产品应用）、`industry_news`（行业动态）、`policy_funding`（政策融资）。错误码：`500 INTERNAL_ERROR`。
 
-字典唯一真源为 `src/app/news-api-types.ts` 的 `CATEGORY_DICTIONARY`（`value`/`label`/`order`），筛选校验走 `isCategoryValue`、展示走 `categoryLabel`；未知值降级为原值文本 + 中性样式。
+活动 API 与小程序的字典真源为 `packages/contracts/src/index.ts` 的 `CATEGORIES`，未知值降级为原值文本。历史兼容模块仍待合并。
 
 ## GET /api/collect-runs
 
@@ -162,9 +163,11 @@
 
 `checks.database=error` 时返回 503 且 `status=degraded`；不返回配置、版本凭据或环境变量。错误码：`500 INTERNAL_ERROR`、`503 SERVICE_UNAVAILABLE`。
 
-## 兼容性规则（二期小程序复用依据）
+当前默认仓储为内存，此健康响应不能证明 PostgreSQL 已连接。生产就绪检查仍待实现。
 
-1. `GET /api/news` 的 `id/title/url/source/publishedAt/summary/category` 必返，二期微信小程序直接复用，不新增 Web 私有字段。
+## 兼容性规则（小程序复用）
+
+1. `GET /api/news` 的 `id/title/url/source/publishedAt/summary/category` 必返，微信小程序直接复用，不新增 Web 私有字段。
 2. 响应字段只增不删、不改名、不改类型与语义；新增字段一律可选，客户端须容忍缺失。
 3. 枚举只追加不删除不改名；客户端遇未知值降级为原值文本 + 中性样式，不报错不隐藏条目。
 4. 分页 `page/limit/total/totalPages` 语义冻结，默认 `limit=20` 不得变更。

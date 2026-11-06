@@ -1,0 +1,42 @@
+/* Only imported by H5 builds; the WeChat package has no HTML selectors. */
+body taro-button-core {
+  width: auto;
+  margin: 0;
+  padding: 0;
+  font-size: inherit;
+  font-family: inherit;
+  line-height: inherit;
+  background: transparent;
+  color: inherit;
+  border-radius: 0;
+}
+body taro-button-core::after { border: none; }
+body taro-button-core + taro-button-core { margin-top: 0; }
+body taro-button-core[disabled] { opacity: .7; background: #e5e9de; color: #637354; }
+body {
+  margin: 0;
+  background: #e8eddf;
+  color: #203e31;
+  font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+/* Keep the optional desktop preview at a readable phone width. */
+@media (min-width: 540px) {
+  html {
+    /* prettier-ignore */
+    font-size: 22.4PX !important;
+  }
+  body,
+  #app {
+    /* prettier-ignore */
+    max-width: 420PX;
+    margin: 0 auto;
+  }
+  .taro_page,
+  .taro-tabbar__container,
+  .detail-actions {
+    /* prettier-ignore */
+    max-width: 420PX;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
