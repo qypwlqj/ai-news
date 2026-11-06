@@ -1,32 +1,27 @@
 {
   "name": "ai-news",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "engines": {
     "node": ">=24 <25"
   },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "typecheck": "next typegen && tsc --noEmit",
-    "test": "node scripts/run-tests.mjs"
-  },
-  "dependencies": {
-    "next": "16.4.3",
-    "node-cron": "4.2.1",
-    "pg": "8.16.3",
-    "react": "19.3.1",
-    "react-dom": "19.3.1"
-  },
-  "devDependencies": {
-    "@types/node": "^24.0.0",
-    "@types/pg": "^8.15.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "tsx": "4.23.15",
-    "typescript": "^5.9.0",
-    "vitest": "4.1.12"
+    "dev": "npm run dev:weapp",
+    "dev:weapp": "npm run dev:weapp -w @ai-news/miniapp",
+    "dev:h5": "npm run dev:h5 -w @ai-news/miniapp",
+    "dev:server": "npm run dev -w @ai-news/server",
+    "start:server": "npm run start -w @ai-news/server",
+    "build": "npm run build:weapp && npm run build:server",
+    "build:weapp": "npm run build:weapp -w @ai-news/miniapp",
+    "build:h5": "npm run build:h5 -w @ai-news/miniapp",
+    "build:server": "npm run build -w @ai-news/server",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "verify:weapp": "node scripts/verify-weapp.mjs"
   }
 }

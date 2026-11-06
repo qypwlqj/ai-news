@@ -1,0 +1,29 @@
+{
+  "name": "@ai-news/server",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env --import tsx --watch src/server.ts",
+    "build": "esbuild src/server.ts --bundle --platform=node --format=esm --external:pg --external:node-cron --outfile=dist/server.mjs",
+    "start": "node --env-file-if-exists=.env dist/server.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/run-tests.mjs"
+  },
+  "dependencies": {
+    "node-cron": "4.2.1",
+    "pg": "8.16.3",
+    "@ai-news/contracts": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.15.0",
+    "tsx": "4.23.15",
+    "typescript": "^5.9.0",
+    "vitest": "4.1.12",
+    "esbuild": "0.25.12"
+  }
+}

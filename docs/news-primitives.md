@@ -1,0 +1,29 @@
+# 纯函数基础设施（枚举 / 日期 / 去重）
+
+一期共享的纯函数模块：无 IO、无环境变量、可单测，供采集编排、查询接口与页面共用。
+
+| 模块 | 内容 |
+| --- | --- |
+| `src/app/news-types.ts` | 领域枚举常量与 DTO（`source`/`category`/`summary_status`/`run_status`/`source_run_status`/`run_trigger`）、错误码集合与守卫函数 |
+| `src/app/news-constants.ts` | 5 类分类字典（`value`/`label`/`order`，`GET /api/categories` 唯一真源）、分页与摘要边界、去重阈值 |
+| `src/app/news-date.ts` | `isIsoDate`、`shanghaiDayRangeUtc`（Asia/Shanghai 自然日 → `[startUtc, endUtc)`）、`toShanghaiDateString`、`shanghaiToday` |
+| `src/app/news-dedup.ts` | `normalizeUrl`、`normalizeTitle`、`titleFingerprint`、`titleSimilarity`、`isSimilarTitle`、`isDuplicateOf` |
+| `src/app/news-auth.ts` | `extractBearerToken`、`timingSafeEqual`、`verifyCronAuth`：`POST /api/cron/collect` 的 Bearer 校验；缺失或格式错误 → `401 UNAUTHORIZED`，不匹配或服务端未配置 → `403 FORBIDDEN`；令牌由调用方注入，模块不读环境变量、不回显明文 |
+| `src/app/news-errors.ts` | `apiErrorBody`、`sanitizeMessage`、`redactSensitive`、`truncateMessage`、`createRequestId`：统一错误信封 `{ error: { code, message, requestId } }` 与脱敏截断（≤ `ERROR_MESSAGE_MAX_CHARS` 2000 字） |
+
+约定：
+
+- 枚举只加不删不改名；未知值降级为原值文本（`categoryLabel` / `sourceLabel`），不报错、不隐藏条目。
+- 分类无法判定时兜底 `industry_news`（`coerceCategory`），保证入库 `category` 命中率 100%。
+- 日期参数非法直接抛错（接口层映射 `400 INVALID_DATE`），不做静默纠正；`date` 按上海自然日换算为 UTC 半开区间。
+- 去重：URL 归一化后相等为硬重复；标题相似度（字符二元组 Dice 系数）严格大于 `0.9`（`TITLE_SIMILARITY_THRESHOLD`）为软重复，指纹仅用于收窄候选。
+- URL 规范化细则：仅接受 `http`/`https`（其它协议或无法解析的地址返回空串）；协议与主机小写、去默认端口；丢弃 `utm_*`/`fbclid`/`gclid`/`ref` 等追踪参数与 `#fragment`；查询参数按键、值排序；非根路径去尾斜杠，根路径保留 `/`（如 `https://example.com/a/?a=1&b=2` → `https://example.com/a?a=1&b=2`，`https://example.com` → `https://example.com/`）。
+- 标题归一化：NFKC + 小写 + 去标点符号（替换为空格）+ 空白归一，仅标点差异的标题相似度为 `1`。
+- `src/app/url-normalize.ts` 提供上述 URL 规范化细则的可测实现（`normalizeUrl`）：非 http(s) 或无法解析返回空串、主机小写、去默认端口、丢弃 `utm_*`/`fbclid`/`gclid`/`ref` 与 `#fragment`、查询参数按键排序、非根路径去尾斜杠且根路径保留 `/`；测试见 `tests/url-normalize.part17.test.ts`。
+- `src/lib/normalize.ts` 为 `src/lib` 层的同一套规则入口（`normalizeUrl` / `normalizeTitle` / `titleFingerprint` / `titleSimilarity` / `isSimilarTitle`），与 `src/app/news-dedup.ts` 行为一致：非 http(s) 协议返回空串、根路径保留 `/`、其余路径去尾斜杠、查询参数按键值排序。
+
+| `src/app/news-query.ts` | `parseNewsListQuery`（`date` → Asia/Shanghai 自然日的 UTC 半开区间、`category`/`source` 枚举、`page`/`limit` 默认 20 上限 100；非法返回 `INVALID_DATE`/`INVALID_CATEGORY`/`INVALID_SOURCE`/`INVALID_PAGINATION`）、`parsePaging`、`readQueryParam`、`buildPageMeta`、`serializeNewsItem`/`serializeNewsList`（`summaryStatus=failed` 照常返回，`summary` 降级为 `null`） |
+
+- 错误信封：`message` 出参/落库前统一经 `sanitizeMessage`（脱敏连接串、Bearer 令牌与 secret 类键值 + 截断 ≤ 2000 字），绝不回显堆栈、SQL 或环境变量值。
+
+测试：`tests/news-primitives.part1.test.ts`、`tests/news-dedup.part1.test.ts`、`tests/news-errors.part1.test.ts`、`tests/news-utils.test.ts`、`tests/news-query.part10.test.ts`、`tests/news-auth.part11.test.ts`（日期换算、分类字典、URL/标题去重、错误截断脱敏、Bearer 鉴权 401/403 区分）。
