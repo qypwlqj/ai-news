@@ -1,5 +1,5 @@
 import { runCollect, type CollectDeps } from './collect';
-import { fetchSource } from './sources';
+import { fetchSource, isSourceId } from './sources';
 import { createHttpLlmClient } from './llm';
 import { summarizeNews } from './summarize';
 import { isSource } from './types';
@@ -27,15 +27,19 @@ export function createDefaultCollectExecutor(
         })
       : null;
   return createCollectExecutor({
-    fetcher: async (source) =>
-      (await fetchSource(source, { retries: 0 })).map((item) => ({
+    fetcher: async (source) => {
+      if (!isSourceId(source)) {
+        throw new Error(`source ${source} is ingest-only and cannot be fetched`);
+      }
+      return (await fetchSource(source, { retries: 0 })).map((item) => ({
         title: item.title,
         url: item.url,
         source: item.source,
         publishedAt: new Date(item.publishedAt),
         externalId: item.externalId,
         rawExcerpt: item.excerpt,
-      })),
+      }));
+    },
     summarizer: async (item) => {
       const result = await summarizeNews(
         { title: item.title, excerpt: item.rawExcerpt },

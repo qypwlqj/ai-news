@@ -44,6 +44,7 @@ export interface NewsItemRecord {
   summaryStatus: SummaryStatus;
   category: Category;
   rawExcerpt?: string | null;
+  metadata?: Record<string, unknown> | null;
   createdAt?: Date;
   updatedAt?: Date;
 }

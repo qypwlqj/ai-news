@@ -5,7 +5,7 @@
 export const SCHEMA_VERSION = 1;
 
 export const DDL_STATEMENTS: readonly string[] = [
-  `CREATE TYPE source_enum AS ENUM ('hacker_news', 'arxiv_cs_ai', 'jiqizhixin')`,
+  `CREATE TYPE source_enum AS ENUM ('hacker_news', 'arxiv_cs_ai', 'jiqizhixin', 'x')`,
   `CREATE TYPE category_enum AS ENUM ('model_release', 'research_paper', 'product_application', 'industry_news', 'policy_funding')`,
   `CREATE TYPE summary_status_enum AS ENUM ('ok', 'failed', 'pending')`,
   `CREATE TYPE run_trigger_enum AS ENUM ('cron', 'api')`,
@@ -25,6 +25,7 @@ export const DDL_STATEMENTS: readonly string[] = [
     summary_status summary_status_enum NOT NULL DEFAULT 'pending',
     category category_enum NOT NULL,
     raw_excerpt text,
+    metadata jsonb,
     created_at timestamp(3) NOT NULL DEFAULT now(),
     updated_at timestamp(3) NOT NULL DEFAULT now()
   )`,

@@ -8,10 +8,11 @@
   },
   "scripts": {
     "dev": "node --env-file-if-exists=.env --import tsx --watch src/server.ts",
-    "build": "esbuild src/server.ts --bundle --platform=node --format=esm --external:pg --external:node-cron --outfile=dist/server.mjs",
+    "build": "esbuild src/server.ts --bundle --platform=node --format=esm --external:pg --external:node-cron --outfile=dist/server.mjs && esbuild src/ingest-cli.ts --bundle --platform=node --format=esm --external:pg --external:node-cron --outfile=dist/ingest-x.mjs",
     "start": "node --env-file-if-exists=.env dist/server.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/run-tests.mjs"
+    "test": "node scripts/run-tests.mjs",
+    "ingest:x": "node --env-file-if-exists=.env dist/ingest-x.mjs"
   },
   "dependencies": {
     "node-cron": "4.2.1",

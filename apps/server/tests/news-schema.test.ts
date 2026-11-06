@@ -33,7 +33,7 @@ describe('news-schema 幂等 DDL', () => {
   });
 
   it('冻结枚举取值与接口契约一致', () => {
-    expect(SCHEMA_ENUMS.source_enum).toEqual(['hacker_news', 'arxiv_cs_ai', 'jiqizhixin']);
+    expect(SCHEMA_ENUMS.source_enum).toEqual(['hacker_news', 'arxiv_cs_ai', 'jiqizhixin', 'x']);
     expect(SCHEMA_ENUMS.category_enum).toEqual([
       'model_release',
       'research_paper',
