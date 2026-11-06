@@ -11,12 +11,14 @@ export const SOURCE_VALUES = [
   'hacker_news',
   'arxiv_cs_ai',
   'jiqizhixin',
+  'x',
 ] as const;
 export type Source = (typeof SOURCE_VALUES)[number];
 export const SOURCE_LABELS: Record<Source, string> = {
   hacker_news: 'Hacker News',
   arxiv_cs_ai: 'arXiv',
   jiqizhixin: '机器之心',
+  x: 'X',
 };
 export interface NewsItem {
   id: string;

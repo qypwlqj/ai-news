@@ -13,7 +13,7 @@ export const SCHEMA_VERSION = 1;
 
 /** 枚举真源；取值顺序即落库顺序，只允许尾部追加新值或新增枚举类型。 */
 export const SCHEMA_ENUMS = {
-  source_enum: ['hacker_news', 'arxiv_cs_ai', 'jiqizhixin'],
+  source_enum: ['hacker_news', 'arxiv_cs_ai', 'jiqizhixin', 'x'],
   category_enum: [
     'model_release',
     'research_paper',
@@ -64,6 +64,7 @@ const NEWS_ITEMS_TABLE = `CREATE TABLE IF NOT EXISTS news_items (
   summary_status summary_status_enum NOT NULL DEFAULT 'pending',
   category category_enum NOT NULL,
   raw_excerpt text,
+  metadata jsonb,
   created_at timestamp(3) NOT NULL DEFAULT now(),
   updated_at timestamp(3) NOT NULL DEFAULT now()
 );`;
@@ -122,11 +123,15 @@ const COLLECT_RUN_SOURCES_INDEXES: readonly string[] = [
 ];
 
 /** 完整幂等 DDL 序列：枚举 → 三表 → 索引（依赖顺序固定，可整体重放）。 */
+const NEWS_ITEMS_METADATA_COLUMN =
+  'ALTER TABLE news_items ADD COLUMN IF NOT EXISTS metadata jsonb;';
+
 export const SCHEMA_STATEMENTS: readonly string[] = [
   ...(Object.entries(SCHEMA_ENUMS) as Array<[SchemaEnumName, readonly string[]]>).flatMap(
     ([name, values]) => createEnumStatements(name, values),
   ),
   NEWS_ITEMS_TABLE,
+  NEWS_ITEMS_METADATA_COLUMN,
   ...NEWS_ITEMS_INDEXES,
   COLLECT_RUNS_TABLE,
   ...COLLECT_RUNS_INDEXES,

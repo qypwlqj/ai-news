@@ -28,8 +28,8 @@ function raw(source: Source, index: number): RawItem {
   };
 }
 
-function fetcherFor(counts: Record<Source, number>) {
-  return async (source: Source) => Array.from({ length: counts[source] }, (_, index) => raw(source, index));
+function fetcherFor(counts: Partial<Record<Source, number>>) {
+  return async (source: Source) => Array.from({ length: counts[source] ?? 0 }, (_, index) => raw(source, index));
 }
 
 describe('runCollect', () => {

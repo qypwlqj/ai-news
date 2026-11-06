@@ -1,0 +1,53 @@
+name: ai-news
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ai_news
+      POSTGRES_USER: ai_news
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - ai_news_pg:/var/lib/postgresql/data
+    networks:
+      - ai_news_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_news -d ai_news"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    image: ai-news-api:local
+    build:
+      context: ..
+      dockerfile: apps/server/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - /home/ubuntu/ai-news-deploy/.env
+    environment:
+      HOST: 0.0.0.0
+      PORT: "3100"
+      AI_NEWS_STORAGE: postgres
+      NODE_ENV: production
+    ports:
+      - "127.0.0.1:3100:3100"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - ai_news_net
+
+networks:
+  ai_news_net:
+    name: ai_news_net
+
+volumes:
+  ai_news_pg:
+    name: ai_news_pg
+
+secrets:
+  db_password:
+    file: /home/ubuntu/ai-news-deploy/secrets/db_password

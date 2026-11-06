@@ -86,6 +86,7 @@ export interface FinishRunPatch {
 
 /** 唯一写入通道：采集编排与查询服务只依赖本接口，不直接拼 SQL。 */
 export interface NewsRepository {
+  ping?(): Promise<void>;
   insertNews(record: NewsItemRecord): Promise<InsertNewsResult>;
   listNews(query: NewsQuery): Promise<NewsListResult>;
   getNewsById(id: string): Promise<NewsItemRecord | null>;
@@ -142,6 +143,7 @@ export class InMemoryNewsRepository implements NewsRepository {
       ...record,
       normalizedUrl,
       titleFingerprint: titleFingerprint(record.title),
+      metadata: record.metadata ?? null,
       createdAt: record.createdAt ?? now,
       updatedAt: record.updatedAt ?? now,
     });

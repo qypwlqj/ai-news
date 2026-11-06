@@ -11,6 +11,7 @@ export const SOURCE_LABELS: Record<Source, string> = {
   hacker_news: 'Hacker News',
   arxiv_cs_ai: 'ArXiv cs.AI',
   jiqizhixin: '机器之心',
+  x: 'X',
 };
 
 /** `ok` 不展示徽标，返回 null；未知状态降级为中性文案。 */
