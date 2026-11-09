@@ -35,6 +35,15 @@ export interface SummaryPatch {
   summary: string | null;
   category: Category;
   summaryStatus: SummaryStatus;
+  /** 可选：用中文标题替换展示标题（仅新加工条目）。 */
+  title?: string;
+  /** 可选：来源原标题；与 title 一同写入。 */
+  originalTitle?: string;
+}
+
+/** 判重与搜索基于来源原标题：title 被替换成中文后仍能识别同题转载。 */
+export function dedupTitleOf(record: Pick<NewsItemRecord, 'title' | 'originalTitle'>): string {
+  return record.originalTitle || record.title;
 }
 
 export interface CollectRunTotals {
@@ -134,7 +143,7 @@ export class InMemoryNewsRepository implements NewsRepository {
         return { inserted: false, existingId: existing.id, reason: 'external_id' };
       }
       const nearInTime = Math.abs(existing.publishedAt.getTime() - record.publishedAt.getTime()) <= DUPLICATE_WINDOW_MS;
-      if (nearInTime && titleSimilarity(existing.title, record.title) > TITLE_SIMILARITY_THRESHOLD) {
+      if (nearInTime && titleSimilarity(dedupTitleOf(existing), dedupTitleOf(record)) > TITLE_SIMILARITY_THRESHOLD) {
         return { inserted: false, existingId: existing.id, reason: 'title_similarity' };
       }
     }
@@ -155,7 +164,7 @@ export class InMemoryNewsRepository implements NewsRepository {
     const range = query.date ? shanghaiDayRange(query.date) : null;
     const items = [...this.news.values()]
       .filter((item) => {
-        if (query.q && !`${item.title} ${item.summary ?? ''}`.toLocaleLowerCase().includes(query.q.toLocaleLowerCase())) return false;
+        if (query.q && !`${item.title} ${item.originalTitle ?? ''} ${item.summary ?? ''}`.toLocaleLowerCase().includes(query.q.toLocaleLowerCase())) return false;
         if (query.category && item.category !== query.category) return false;
         if (query.source && item.source !== query.source) return false;
         if (query.date) {
@@ -181,6 +190,8 @@ export class InMemoryNewsRepository implements NewsRepository {
       summary: patch.summary,
       category: patch.category,
       summaryStatus: patch.summaryStatus,
+      ...(patch.title ? { title: patch.title } : {}),
+      ...(patch.originalTitle ? { originalTitle: patch.originalTitle } : {}),
       updatedAt: new Date(),
     };
     this.news.set(id, next);

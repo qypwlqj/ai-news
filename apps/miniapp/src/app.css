@@ -823,3 +823,56 @@ button[disabled] {
   letter-spacing: 1px;
   margin-top: 42px;
 }
+
+/* 原标题 / 原文 / AI 摘要分区 */
+.one-line {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.original-title {
+  font-size: 22px;
+  line-height: 1.5;
+  color: #9aa58e;
+  margin: -6px 0 12px;
+}
+.card-section-label {
+  font-size: 20px;
+  font-weight: 600;
+  color: #657e4e;
+}
+.card-excerpt {
+  font-size: 23px;
+  line-height: 1.75;
+  color: #8a9580;
+  margin-top: 10px;
+}
+.detail-original-title {
+  display: block;
+  font-size: 26px;
+  line-height: 1.6;
+  color: #92a080;
+  margin: -12px 0 22px;
+  word-break: break-word;
+}
+.original-panel {
+  background: #ffffff;
+  border: 1px solid #e3e8da;
+  border-radius: 25px;
+  padding: 34px 30px 30px;
+  margin-top: 28px;
+}
+.original-label {
+  font-size: 25px;
+  color: #6f7c64;
+  font-weight: 550;
+}
+.original-text {
+  display: block;
+  font-size: 28px;
+  line-height: 1.9;
+  color: #4f5a45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

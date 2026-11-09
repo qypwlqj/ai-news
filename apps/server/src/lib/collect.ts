@@ -42,6 +42,8 @@ export type SourceFetcher = (source: Source) => Promise<RawItem[]>;
 export interface SummaryOutcome {
   summary: string;
   category: Category;
+  /** 可选中文标题：存在时替换 title，来源原标题保留在 originalTitle。 */
+  titleZh?: string | null;
 }
 
 export type Summarizer = (item: RawItem) => Promise<SummaryOutcome | null>;
@@ -341,6 +343,7 @@ async function persistItem(ctx: RunContext, item: RawItem): Promise<{ inserted: 
   const record: NewsItemRecord = {
     id: newId(),
     title: item.title,
+    originalTitle: item.title,
     url: item.url,
     normalizedUrl: buildNormalizedUrl(item.url),
     titleFingerprint: fingerprintTitle(item.title),
@@ -368,10 +371,12 @@ async function summarizeItem(ctx: RunContext, record: NewsItemRecord): Promise<b
       : null;
     if (!outcome || !outcome.summary || outcome.summary.trim().length === 0) throw new Error('empty summary');
     const category = CATEGORIES.includes(outcome.category) ? outcome.category : DEFAULT_CATEGORY;
+    const titleZh = typeof outcome.titleZh === 'string' ? outcome.titleZh.trim() : '';
     await ctx.repository.saveSummary(record.id, {
       summary: truncateSummary(outcome.summary),
       category,
       summaryStatus: 'ok',
+      ...(titleZh && titleZh !== record.title ? { title: titleZh, originalTitle: record.title } : {}),
     });
     return true;
   } catch {

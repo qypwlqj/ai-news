@@ -4,6 +4,7 @@ import type { Database } from './postgres';
 import {
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,
+  dedupTitleOf,
   shanghaiDayRange,
   type CollectRunQuery,
   type CollectRunRecord,
@@ -98,14 +99,14 @@ export class PostgresNewsRepository implements NewsRepository {
     const windowStart = new Date(record.publishedAt.getTime() - DUPLICATE_WINDOW_MS);
     const windowEnd = new Date(record.publishedAt.getTime() + DUPLICATE_WINDOW_MS);
     const candidates = await this.db.query(
-      `SELECT id, title FROM news_items
+      `SELECT id, COALESCE(original_title, title) AS title FROM news_items
        WHERE published_at >= $1 AND published_at <= $2
        ORDER BY published_at DESC
        LIMIT 200`,
       [windowStart.toISOString(), windowEnd.toISOString()],
     );
     for (const row of candidates.rows) {
-      if (titleSimilarity(String(row.title), record.title) > TITLE_SIMILARITY_THRESHOLD) {
+      if (titleSimilarity(String(row.title), dedupTitleOf(record)) > TITLE_SIMILARITY_THRESHOLD) {
         return { inserted: false, existingId: String(row.id), reason: 'title_similarity' };
       }
     }
@@ -158,7 +159,9 @@ export class PostgresNewsRepository implements NewsRepository {
     };
     if (query.q) {
       params.push(`%${query.q.toLocaleLowerCase()}%`);
-      where.push(`(LOWER(title) LIKE $${params.length} OR LOWER(COALESCE(summary, '')) LIKE $${params.length})`);
+      where.push(
+        `(LOWER(title) LIKE $${params.length} OR LOWER(COALESCE(original_title, '')) LIKE $${params.length} OR LOWER(COALESCE(summary, '')) LIKE $${params.length})`,
+      );
     }
     if (query.category) add('category =', query.category);
     if (query.source) add('source =', query.source);
@@ -190,10 +193,11 @@ export class PostgresNewsRepository implements NewsRepository {
   async saveSummary(id: string, patch: SummaryPatch): Promise<NewsItemRecord | null> {
     const result = await this.db.query(
       `UPDATE news_items
-       SET summary = $2, category = $3, summary_status = $4, updated_at = now()
+       SET summary = $2, category = $3, summary_status = $4,
+           title = COALESCE($5, title), original_title = COALESCE($6, original_title), updated_at = now()
        WHERE id = $1
        RETURNING *`,
-      [id, patch.summary, patch.category, patch.summaryStatus],
+      [id, patch.summary, patch.category, patch.summaryStatus, patch.title ?? null, patch.originalTitle ?? null],
     );
     return result.rows[0] ? mapNewsRow(result.rows[0]) : null;
   }

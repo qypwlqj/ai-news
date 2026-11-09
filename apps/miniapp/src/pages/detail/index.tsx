@@ -3,7 +3,12 @@ import { Button, Text, View } from '@tarojs/components';
 import Taro, { useRouter, useShareAppMessage } from '@tarojs/taro';
 import { categoryLabel, sourceLabel, type NewsItem } from '@ai-news/contracts';
 import { getNewsDetail, demoMode } from '../../services/api';
-import { dateParts, safeOriginalUrl, summaryText } from '../../domain/news';
+import {
+  dateParts,
+  newsDisplay,
+  safeOriginalUrl,
+  summaryText,
+} from '../../domain/news';
 import { PreviewNotice } from '../../components/PreviewNotice';
 
 export default function Detail() {
@@ -29,7 +34,7 @@ export default function Detail() {
     };
   }, [id, attempt]);
   useShareAppMessage(() => ({
-    title: item?.title ?? 'AI DAILY · 值得读的 AI 资讯',
+    title: item ? newsDisplay(item).title : 'AI DAILY · 值得读的 AI 资讯',
     path: `/pages/detail/index?id=${encodeURIComponent(id)}`,
   }));
   const goBack = () =>
@@ -73,6 +78,7 @@ export default function Detail() {
       </View>
     );
   const date = dateParts(item.publishedAt);
+  const view = newsDisplay(item);
   return (
     <View className="screen detail-screen">
       <Button className="back-button" onClick={goBack}>
@@ -86,10 +92,23 @@ export default function Detail() {
           </Text>
           <Text className="detail-edition">A CLOSER LOOK</Text>
         </View>
-        <Text className="detail-title">{item.title}</Text>
+        <Text className="detail-title" selectable>
+          {view.title}
+        </Text>
+        {view.subtitle ? (
+          <Text className="detail-original-title" selectable>
+            {view.subtitle}
+          </Text>
+        ) : null}
         <View className="detail-meta flex items-center">
           <Text className="source-dot">●</Text>
           <Text>{sourceLabel(item.source)}</Text>
+          {view.author ? (
+            <>
+              <Text className="meta-separator">/</Text>
+              <Text>{view.author}</Text>
+            </>
+          ) : null}
           <Text className="meta-separator">/</Text>
           <Text>
             {date ? `${date.month}月${date.day}日 ${date.time}` : '日期未知'}
@@ -100,7 +119,7 @@ export default function Detail() {
         <View className="digest-top flex items-center justify-between">
           <Text className="digest-label">
             <Text className="digest-star">✳</Text>{' '}
-            {demoMode ? '示例摘要' : 'AI 中文摘要'}
+            {demoMode ? '示例摘要' : 'AI 摘要'}
           </Text>
           <Text className="digest-index">THE ESSENTIALS</Text>
         </View>
@@ -112,6 +131,17 @@ export default function Detail() {
           <Text>↗</Text>
         </View>
       </View>
+      {view.excerpt ? (
+        <View className="original-panel">
+          <View className="digest-top flex items-center justify-between">
+            <Text className="original-label">原文</Text>
+            <Text className="digest-index">FROM THE SOURCE</Text>
+          </View>
+          <Text className="original-text" selectable>
+            {view.excerpt}
+          </Text>
+        </View>
+      ) : null}
       <View className="reading-reminder">
         <Text className="reading-reminder-title">读到这里，再往深处一点。</Text>
         <Text>
@@ -133,7 +163,7 @@ export default function Detail() {
           onClick={
             process.env.TARO_ENV === 'h5'
               ? () =>
-                  void copy(`${item.title}\n${summaryText(item)}`, '摘要已复制')
+                  void copy(`${view.title}\n${summaryText(item)}`, '摘要已复制')
               : undefined
           }
         >

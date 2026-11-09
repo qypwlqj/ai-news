@@ -17,6 +17,8 @@ export const LLM_INVALID_OUTPUT_CODE = 'LLM_INVALID_OUTPUT';
 export interface SummarizeResult {
   summary: string | null;
   category: Category;
+  /** LLM 生成的中文标题；缺失/不合法/失败时为 null。 */
+  titleZh: string | null;
   summaryStatus: SummaryStatus;
   durationMs: number;
   errorCode?: string;
@@ -57,6 +59,7 @@ export async function summarizeNews(
   const failed = (errorCode: string): SummarizeResult => ({
     summary: null,
     category: FALLBACK_CATEGORY,
+    titleZh: null,
     summaryStatus: 'failed',
     durationMs: Date.now() - startedAt,
     errorCode,
@@ -80,6 +83,7 @@ export async function summarizeNews(
   return {
     summary: parsed.summary,
     category: parsed.category,
+    titleZh: parsed.titleZh,
     summaryStatus: 'ok',
     durationMs: Date.now() - startedAt,
   };

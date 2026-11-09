@@ -20,8 +20,15 @@ export const SOURCE_LABELS: Record<Source, string> = {
   jiqizhixin: '机器之心',
   x: 'X',
 };
+/** 作者信息（目前仅 X 条目提供）。 */
+export interface NewsAuthor {
+  name: string;
+  handle: string | null;
+}
+/** 列表与详情均可返回；新增字段全部可选，旧客户端可忽略。 */
 export interface NewsItem {
   id: string;
+  /** 展示标题：新加工条目为中文标题，旧数据可能是来源原标题。 */
   title: string;
   url: string;
   source: string;
@@ -29,7 +36,15 @@ export interface NewsItem {
   summary: string | null;
   summaryStatus: string;
   category: string;
+  /** 来源原标题；旧数据或无原标题时为 null/缺省。 */
+  originalTitle?: string | null;
+  /** 列表用原文片段（约 200 字截断）；无原文时为 null。 */
+  excerpt?: string | null;
+  /** 仅详情接口：完整原文片段（X 全文、arXiv 摘要等）。 */
+  rawExcerpt?: string | null;
+  author?: NewsAuthor | null;
 }
+export const NEWS_EXCERPT_MAX_CHARS = 200;
 export interface NewsPage {
   items: NewsItem[];
   page: number;

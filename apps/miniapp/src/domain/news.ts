@@ -20,8 +20,55 @@ export function isNewsItem(value: unknown): value is NewsItem {
       'category',
       'summaryStatus',
     ].every((key) => typeof row[key] === 'string') &&
-    (row.summary === null || typeof row.summary === 'string')
+    (row.summary === null || typeof row.summary === 'string') &&
+    ['originalTitle', 'excerpt', 'rawExcerpt'].every(
+      (key) => row[key] == null || typeof row[key] === 'string',
+    ) &&
+    isOptionalAuthor(row.author)
   );
+}
+
+function isOptionalAuthor(value: unknown): boolean {
+  if (value == null) return true;
+  if (typeof value !== 'object') return false;
+  const author = value as Record<string, unknown>;
+  return (
+    typeof author.name === 'string' &&
+    (author.handle == null || typeof author.handle === 'string')
+  );
+}
+
+function clean(value: string | null | undefined): string | null {
+  const text = typeof value === 'string' ? value.trim() : '';
+  return text ? text : null;
+}
+
+export interface NewsDisplay {
+  title: string;
+  /** 来源原标题，仅在与主标题不同时展示。 */
+  subtitle: string | null;
+  /** 原文内容：详情优先完整 rawExcerpt，列表用截断 excerpt；无原文为 null。 */
+  excerpt: string | null;
+  /** 作者（X）："名称 @handle"。 */
+  author: string | null;
+}
+
+/** 旧数据（英文标题、无原标题/原文/作者）只会得到 title，其余为 null，界面据此不渲染空区块。 */
+export function newsDisplay(item: NewsItem): NewsDisplay {
+  const title = clean(item.title) ?? '';
+  const original = clean(item.originalTitle);
+  const name = clean(item.author?.name);
+  const handle = clean(item.author?.handle)?.replace(/^@/, '');
+  return {
+    title,
+    subtitle: original && original !== title ? original : null,
+    excerpt: clean(item.rawExcerpt) ?? clean(item.excerpt),
+    author: name
+      ? handle && handle !== name
+        ? `${name} @${handle}`
+        : name
+      : null,
+  };
 }
 
 export function parseNewsPage(value: unknown): NewsPage {
@@ -97,9 +144,7 @@ export function summaryText(item: NewsItem): string {
 }
 
 /** Beijing time, without relying on Intl support in older WeChat base libraries. */
-export function dateParts(
-  value: string | number | Date,
-): {
+export function dateParts(value: string | number | Date): {
   date: string;
   time: string;
   month: string;

@@ -16,6 +16,7 @@ export const SUMMARY_MIN_CHARS = 50;
 export const SUMMARY_MAX_CHARS = 200;
 export const SUMMARY_TIMEOUT_MS = 20_000;
 export const PROMPT_EXCERPT_LIMIT = 2000;
+export const TITLE_ZH_MAX_CHARS = 80;
 
 export interface LlmInput {
   title: string;
@@ -41,7 +42,8 @@ export function buildSummaryPrompt(input: LlmInput): string {
   const excerpt = (input.excerpt ?? '').slice(0, PROMPT_EXCERPT_LIMIT).trim();
   return [
     '你是 AI 领域资讯编辑。请阅读下面的资讯，只输出一个 JSON 对象：',
-    '{"summary": "50-200 字中文摘要", "category": "五类标签之一"}',
+    '{"title_zh": "不超过 40 字的中文标题", "summary": "50-200 字中文摘要", "category": "五类标签之一"}',
+    'title_zh 为忠实于原文的简洁中文标题，可保留专有名词英文原文，不加引号、书名号或 Markdown。',
     `category 只能取以下枚举之一：${CATEGORY_VALUES.join(' / ')}。`,
     '摘要必须为中文，50-200 字，不换行、不含 Markdown；不要输出 JSON 以外的任何内容。',
     `标题：${input.title}`,
@@ -65,11 +67,27 @@ export function truncateSummary(text: string): string {
   return (chars.length > SUMMARY_MAX_CHARS ? chars.slice(0, SUMMARY_MAX_CHARS) : chars).join('');
 }
 
+/** 中文标题：去空白折叠，必须含中文字符且不超过 80 字，否则视为缺失（调用侧保留原标题）。 */
+export function parseTitleZh(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const text = value.replace(/\s+/g, ' ').trim();
+  if (!text || !/[\u4e00-\u9fff]/.test(text)) return null;
+  if (Array.from(text).length > TITLE_ZH_MAX_CHARS) return null;
+  return text;
+}
+
 /**
  * 解析模型输出：容忍 ```json 围栏与前后说明文字；
  * 摘要长度不合法或分类不在 5 枚举内一律返回 null（调用侧降级为 failed）。
  */
-export function parseLlmOutput(raw: string): { summary: string; category: Category } | null {
+export interface ParsedLlmOutput {
+  summary: string;
+  category: Category;
+  /** 新增字段：缺失或不合法时为 null，不影响摘要成功。 */
+  titleZh: string | null;
+}
+
+export function parseLlmOutput(raw: string): ParsedLlmOutput | null {
   if (typeof raw !== 'string') return null;
   const start = raw.indexOf('{');
   const end = raw.lastIndexOf('}');
@@ -90,7 +108,7 @@ export function parseLlmOutput(raw: string): { summary: string; category: Catego
 
   const summary = truncateSummary(summaryText);
   if (!isValidSummary(summary)) return null;
-  return { summary, category: category as Category };
+  return { summary, category: category as Category, titleZh: parseTitleZh(record.title_zh) };
 }
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
