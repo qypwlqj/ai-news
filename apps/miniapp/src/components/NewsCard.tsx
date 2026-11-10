@@ -1,7 +1,7 @@
 import { Image, Text, View } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 import { categoryLabel, sourceLabel, type NewsItem } from '@ai-news/contracts';
-import { dateParts, summaryText } from '../domain/news';
+import { dateParts, newsDisplay, summaryText } from '../domain/news';
 import orbit from '../assets/orbit.png';
 
 export function NewsCard({
@@ -12,6 +12,19 @@ export function NewsCard({
   featured?: boolean;
 }) {
   const date = dateParts(item.publishedAt);
+  const view = newsDisplay(item);
+  const sourceLine = [sourceLabel(item.source), view.author]
+    .filter(Boolean)
+    .join(' · ');
+  const subtitle = view.subtitle ? (
+    <Text className="original-title one-line">{view.subtitle}</Text>
+  ) : null;
+  const excerpt = view.excerpt ? (
+    <Text className="card-excerpt two-lines">
+      <Text className="card-section-label">原文 </Text>
+      {view.excerpt}
+    </Text>
+  ) : null;
   const open = () =>
     Taro.navigateTo({
       url: `/pages/detail/index?id=${encodeURIComponent(item.id)}`,
@@ -22,7 +35,7 @@ export function NewsCard({
         className="focus-card bg-white overflow-hidden"
         onClick={open}
         role="button"
-        aria-label={`阅读 ${item.title}`}
+        aria-label={`阅读 ${view.title}`}
       >
         <View className="focus-image-wrap">
           <Image className="focus-image" src={orbit} mode="aspectFill" />
@@ -35,10 +48,15 @@ export function NewsCard({
             <Text className={`category-label category-${item.category}`}>
               {categoryLabel(item.category)}
             </Text>
-            <Text className="meta">{sourceLabel(item.source)}</Text>
+            <Text className="meta">{sourceLine}</Text>
           </View>
-          <Text className="focus-title">{item.title}</Text>
-          <Text className="summary two-lines">{summaryText(item)}</Text>
+          <Text className="focus-title">{view.title}</Text>
+          {subtitle}
+          <Text className="summary two-lines">
+            <Text className="card-section-label">AI 摘要 </Text>
+            {summaryText(item)}
+          </Text>
+          {excerpt}
           <View className="focus-footer flex items-center justify-between">
             <Text className="meta">
               {date ? `${date.month}.${date.day} · ${date.time}` : '日期未知'}
@@ -55,7 +73,7 @@ export function NewsCard({
       className="news-card bg-white"
       onClick={open}
       role="button"
-      aria-label={`阅读 ${item.title}`}
+      aria-label={`阅读 ${view.title}`}
     >
       <View className="flex items-center justify-between">
         <Text className={`category-label category-${item.category}`}>
@@ -65,11 +83,16 @@ export function NewsCard({
           {date ? `${date.month}.${date.day} ${date.time}` : '日期未知'}
         </Text>
       </View>
-      <Text className="news-title">{item.title}</Text>
-      <Text className="summary two-lines">{summaryText(item)}</Text>
+      <Text className="news-title">{view.title}</Text>
+      {subtitle}
+      <Text className="summary two-lines">
+        <Text className="card-section-label">AI 摘要 </Text>
+        {summaryText(item)}
+      </Text>
+      {excerpt}
       <View className="flex items-center justify-between mt-4">
         <Text className="source-caption">
-          <Text className="source-dot">●</Text> {sourceLabel(item.source)}
+          <Text className="source-dot">●</Text> {sourceLine}
         </Text>
         <Text className="card-arrow">↗</Text>
       </View>

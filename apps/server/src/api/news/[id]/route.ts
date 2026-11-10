@@ -1,5 +1,6 @@
 import { getNewsRepository } from '../../../lib/db/repository';
 import { errorResponse, jsonResponse } from '../../../lib/runtime';
+import { authorOf, excerptOf } from '../../../lib/query';
 
 
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
@@ -47,6 +48,8 @@ export async function GET(
     category: asText(record.category) ?? 'industry_news',
     summaryStatus: asText(record.summaryStatus) ?? 'pending',
     rawExcerpt: asText(record.rawExcerpt),
+    excerpt: excerptOf(asText(record.rawExcerpt)),
+    author: authorOf(record.metadata as Record<string, unknown> | null | undefined),
     titleFingerprint: asText(record.titleFingerprint),
     createdAt: asIso(record.createdAt),
     updatedAt: asIso(record.updatedAt),

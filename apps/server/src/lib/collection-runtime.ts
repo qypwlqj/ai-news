@@ -46,7 +46,7 @@ export function createDefaultCollectExecutor(
         client,
       );
       return result.summaryStatus === 'ok' && result.summary
-        ? { summary: result.summary, category: result.category }
+        ? { summary: result.summary, category: result.category, titleZh: result.titleZh }
         : null;
     },
   });

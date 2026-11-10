@@ -1,3 +1,4 @@
+import { NEWS_EXCERPT_MAX_CHARS, type NewsAuthor } from '@ai-news/contracts';
 import type { Category, NewsItemRecord, Source } from './types';
 import { CATEGORIES, SOURCE_VALUES } from './types';
 import { DEFAULT_PAGE_SIZE, getNewsRepository, MAX_PAGE_SIZE, type NewsListResult } from './db/repository';
@@ -26,6 +27,31 @@ export interface NewsItemDto {
   category: string;
   titleFingerprint?: string;
   createdAt: string;
+  originalTitle: string | null;
+  excerpt: string | null;
+  author: NewsAuthor | null;
+}
+
+function nonEmpty(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const text = value.trim();
+  return text ? text : null;
+}
+
+/** 列表摘录：去首尾空白，超过 200 字按码点截断并加省略号；空白视为无原文。 */
+export function excerptOf(raw: string | null | undefined): string | null {
+  const text = nonEmpty(raw);
+  if (!text) return null;
+  const chars = Array.from(text);
+  return chars.length > NEWS_EXCERPT_MAX_CHARS ? chars.slice(0, NEWS_EXCERPT_MAX_CHARS).join('') + '…' : text;
+}
+
+/** 作者只从入库 metadata 读取（X 采集写入 authorDisplayName/authorHandle），不臆造。 */
+export function authorOf(metadata: Record<string, unknown> | null | undefined): NewsAuthor | null {
+  if (!metadata || typeof metadata !== 'object') return null;
+  const handle = nonEmpty(metadata.authorHandle)?.replace(/^@/, '') || null;
+  const name = nonEmpty(metadata.authorDisplayName) ?? handle;
+  return name ? { name, handle } : null;
 }
 
 export interface NewsListResponse {
@@ -97,6 +123,9 @@ export function toNewsItemDto(item: NewsItemRecord): NewsItemDto {
     category: item.category,
     titleFingerprint: item.titleFingerprint,
     createdAt: (item.createdAt ?? item.publishedAt).toISOString(),
+    originalTitle: nonEmpty(item.originalTitle),
+    excerpt: excerptOf(item.rawExcerpt),
+    author: authorOf(item.metadata),
   };
 }
 
